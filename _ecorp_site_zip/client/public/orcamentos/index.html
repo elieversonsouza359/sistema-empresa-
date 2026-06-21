@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sistema ECORP | Orçamentos</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Construtora pequena, controle grande</p>
+        <h1>Sistema ECORP</h1>
+      </div>
+      <div class="topbar-actions">
+        <button class="ghost" id="scrollDatabaseBtn" type="button">Banco de orcamentos</button>
+        <button class="ghost" id="topSaveBudgetBtn" type="button">Salvar no banco</button>
+        <button class="ghost" id="exportBudgetBtn" type="button">Exportar CSV</button>
+        <button class="primary" id="printBtn" type="button">Imprimir proposta</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="panel history-panel database-panel" id="budgetDatabase" aria-labelledby="historyTitle">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Banco de dados</p>
+            <h2 id="historyTitle">Orcamentos salvos</h2>
+          </div>
+          <div class="section-actions">
+            <button class="primary" id="databaseSaveBudgetBtn" type="button">Salvar orcamento atual</button>
+            <button class="ghost" id="exportDatabaseBtn" type="button">Backup JSON</button>
+            <label class="file-button secondary-file">
+              Importar backup
+              <input id="importDatabaseInput" accept=".json,application/json" type="file" />
+            </label>
+          </div>
+        </div>
+        <div class="database-toolbar">
+          <input id="budgetSearchInput" type="search" placeholder="Buscar por cliente, obra, cidade ou data" />
+          <strong id="budgetCount">0 orcamentos</strong>
+        </div>
+        <div class="history-list" id="budgetHistory"></div>
+        <p class="empty-state" id="emptyHistory">Nenhum orcamento salvo ainda. Monte um orcamento e clique em Salvar no banco.</p>
+      </section>
+
+      <section class="panel budget-panel" aria-labelledby="budgetTitle">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Orçamento</p>
+            <h2 id="budgetTitle">Dados da proposta</h2>
+          </div>
+          <div class="section-actions">
+            <button class="ghost" id="newBudgetBtn" type="button">Novo</button>
+            <button class="ghost danger" id="resetBudgetBtn" type="button">Resetar orcamento</button>
+            <button class="primary" id="saveBudgetBtn" type="button">Salvar orcamento</button>
+          </div>
+        </div>
+
+        <div class="form-grid">
+          <label>
+            Cliente
+            <input id="clientName" type="text" placeholder="Nome do cliente" />
+          </label>
+          <label>
+            Obra
+            <input id="projectName" type="text" placeholder="Ex.: Reforma residencial" />
+          </label>
+          <label>
+            Município
+            <input id="cityName" type="text" placeholder="Cidade / SP" />
+          </label>
+          <label>
+            BDI (%)
+            <input id="bdiInput" min="0" step="0.01" type="number" value="20" />
+          </label>
+        </div>
+
+        <section class="project-reader" aria-labelledby="projectReaderTitle">
+          <div class="section-header">
+            <div>
+              <p class="eyebrow">Leitura do projeto</p>
+              <h2 id="projectReaderTitle">Anexar PDF e gerar itens</h2>
+            </div>
+            <label class="file-button">
+              Anexar PDFs
+              <input id="projectPdfInput" accept=".pdf,application/pdf" multiple type="file" />
+            </label>
+          </div>
+          <p class="hint">
+            Anexe as pranchas para consulta e faca o levantamento pelas cotas: metro linear de paredes, pe-direito,
+            faces de chapisco/reboco/acabamento, baldrame, contrapiso e cobertura. O sistema calcula os quantitativos
+            e sugere itens SINAPI para inserir no orcamento.
+          </p>
+          <div class="takeoff-grid">
+            <label>
+              Paredes externas - terreo (m)
+              <input id="externalWallLength" min="0" step="0.01" type="number" placeholder="Ex.: 42" />
+            </label>
+            <label>
+              Paredes internas - terreo (m)
+              <input id="internalWallLength" min="0" step="0.01" type="number" placeholder="Ex.: 38" />
+            </label>
+            <label>
+              Pe-direito terreo (m)
+              <input id="wallHeight" min="0" step="0.01" type="number" value="2.8" />
+            </label>
+            <label>
+              Paredes externas - superior (m)
+              <input id="upperExternalWallLength" min="0" step="0.01" type="number" placeholder="Ex.: 34" />
+            </label>
+            <label>
+              Paredes internas - superior (m)
+              <input id="upperInternalWallLength" min="0" step="0.01" type="number" placeholder="Ex.: 30" />
+            </label>
+            <label>
+              Pe-direito superior (m)
+              <input id="upperWallHeight" min="0" step="0.01" type="number" placeholder="Ex.: 2,60" />
+            </label>
+            <label>
+              Desconto portas/janelas (m2)
+              <input id="openingArea" min="0" step="0.01" type="number" placeholder="Manual opcional" />
+            </label>
+            <label>
+              Desconto na alvenaria
+              <select id="masonryOpeningRule">
+                <option value="excess2" selected>Descontar apenas vao acima de 2 m2</option>
+                <option value="none">Nao descontar vaos</option>
+                <option value="total">Descontar vao total</option>
+              </select>
+            </label>
+            <label>
+              Portas qtd.
+              <input id="doorCount" min="0" step="1" type="number" placeholder="Ex.: 8" />
+            </label>
+            <label>
+              Porta L x A (m)
+              <input id="doorSize" type="text" placeholder="0,80 x 2,10" />
+            </label>
+            <label>
+              Janelas qtd.
+              <input id="windowCount" min="0" step="1" type="number" placeholder="Ex.: 10" />
+            </label>
+            <label>
+              Janela L x A (m)
+              <input id="windowSize" type="text" placeholder="1,20 x 1,00" />
+            </label>
+            <label>
+              Faces chapisco
+              <select id="chapiscoFaces">
+                <option value="0">Nao incluir</option>
+                <option value="1">1 face</option>
+                <option value="2" selected>2 faces</option>
+              </select>
+            </label>
+            <label>
+              Faces emboco/reboco
+              <select id="rebocoFaces">
+                <option value="0">Nao incluir</option>
+                <option value="1">1 face</option>
+                <option value="2" selected>2 faces</option>
+              </select>
+            </label>
+            <label>
+              Faces acabamento/pintura
+              <select id="finishFaces">
+                <option value="0">Nao incluir</option>
+                <option value="1">1 face</option>
+                <option value="2" selected>2 faces</option>
+              </select>
+            </label>
+            <label>
+              Baldrame (m linear)
+              <input id="baldrameLength" min="0" step="0.01" type="number" placeholder="Ex.: 42" />
+            </label>
+            <label>
+              Largura baldrame (m)
+              <input id="baldrameWidth" min="0" step="0.01" type="number" value="0.2" />
+            </label>
+            <label>
+              Altura baldrame (m)
+              <input id="baldrameHeight" min="0" step="0.01" type="number" value="0.3" />
+            </label>
+            <label>
+              Area piso terreo (m2)
+              <input id="floorArea" min="0" step="0.01" type="number" placeholder="Ex.: 85" />
+            </label>
+            <label>
+              Area piso superior (m2)
+              <input id="upperFloorArea" min="0" step="0.01" type="number" placeholder="Ex.: 70" />
+            </label>
+            <label>
+              Area cobertura real (m2)
+              <input id="roofArea" min="0" step="0.01" type="number" placeholder="So se tiver na prancha" />
+            </label>
+            <label>
+              Perda tecnica (%)
+              <input id="wastePercent" min="0" step="0.01" type="number" value="0" />
+            </label>
+          </div>
+          <div class="takeoff-summary" id="takeoffSummary">
+            Informe as cotas principais e clique em Calcular quantitativos.
+          </div>
+          <div class="cota-panel" id="cotaPanel" hidden>
+            <div class="section-header compact-header">
+              <div>
+                <p class="eyebrow">Cotas extraidas</p>
+                <h3>Pre-levantamento automatico</h3>
+              </div>
+              <button class="ghost" id="applyCotasBtn" type="button">Aplicar cotas sugeridas</button>
+            </div>
+            <p class="hint" id="cotaSummary">Nenhuma cota extraida ainda.</p>
+            <div class="cota-list" id="cotaList"></div>
+          </div>
+          <div class="reader-grid">
+            <label>
+              Observacoes / texto extraido do PDF
+              <textarea id="projectTextInput" placeholder="Opcional: texto extraido do PDF ou anotacoes do levantamento. Ex.: parede externa 42 m, interna 38 m, pe-direito 2,80 m."></textarea>
+            </label>
+            <div class="reader-actions">
+              <button class="primary" id="calculateTakeoffBtn" type="button">Calcular quantitativos</button>
+              <button class="ghost" id="analyzeProjectBtn" type="button">Analisar texto</button>
+              <button class="primary strong-action" id="generateBudgetFromTakeoffBtn" type="button">Gerar orcamento automatico</button>
+              <button class="ghost" id="addProjectItemsBtn" type="button">Adicionar sugestoes selecionadas</button>
+              <p class="selected-service" id="projectReaderStatus">Nenhum PDF analisado ainda.</p>
+            </div>
+          </div>
+          <div class="project-estimates" id="projectEstimates"></div>
+        </section>
+
+        <div class="add-item">
+          <div class="service-picker">
+            <label for="budgetServiceSearch">Item do orcamento</label>
+            <input
+              id="budgetServiceSearch"
+              type="search"
+              autocomplete="off"
+              placeholder="Digite: pintura, alvenaria, sapata, telhado..."
+            />
+            <input id="selectedServiceCode" type="hidden" />
+            <div class="suggestions" id="budgetSuggestions" role="listbox"></div>
+            <p class="selected-service" id="selectedServicePreview">Digite para ver sugestoes da base SINAPI.</p>
+          </div>
+          <label>
+            Quantidade
+            <input id="quantityInput" min="0" step="0.01" type="number" value="1" />
+          </label>
+          <button class="primary" id="addItemBtn" type="button">Adicionar item</button>
+        </div>
+
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Cod.</th>
+                <th>Descrição</th>
+                <th>Un.</th>
+                <th>Qtd.</th>
+                <th>Unitário</th>
+                <th>Total</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="budgetItems"></tbody>
+          </table>
+          <p class="empty-state" id="emptyBudget">Adicione serviços para montar o orçamento.</p>
+        </div>
+      </section>
+
+      <aside class="summary" aria-label="Resumo do orçamento">
+        <div>
+          <p class="eyebrow">Resumo</p>
+          <h2>Total da proposta</h2>
+        </div>
+        <dl>
+          <div>
+            <dt>Custo direto</dt>
+            <dd id="directCost">R$ 0,00</dd>
+          </div>
+          <div>
+            <dt>BDI</dt>
+            <dd id="bdiCost">R$ 0,00</dd>
+          </div>
+          <div class="total">
+            <dt>Total final</dt>
+            <dd id="finalCost">R$ 0,00</dd>
+          </div>
+        </dl>
+        <p class="hint">
+          Os dados ficam salvos neste navegador. Para uso em equipe, o próximo passo é ligar este website a um banco de dados.
+        </p>
+      </aside>
+
+      <section class="panel services-panel" aria-labelledby="servicesTitle">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Base SINAPI SP</p>
+            <h2 id="servicesTitle">Serviços e insumos</h2>
+          </div>
+          <label class="file-button">
+            Importar CSV
+            <input id="csvInput" accept=".csv,text/csv" type="file" />
+          </label>
+        </div>
+
+        <p class="hint">
+          Importe uma planilha CSV com colunas como código, descrição, unidade e preço. Também é possível cadastrar itens manualmente.
+        </p>
+
+        <form class="service-form" id="serviceForm">
+          <input id="serviceCode" placeholder="Código" required />
+          <input id="serviceDescription" placeholder="Descrição do serviço" required />
+          <input id="serviceUnit" placeholder="Un." required />
+          <input id="servicePrice" min="0" step="0.01" type="number" placeholder="Preço unitário" required />
+          <button class="primary" type="submit">Cadastrar</button>
+        </form>
+
+        <div class="toolbar">
+          <input id="searchInput" type="search" placeholder="Buscar por código ou descrição" />
+          <button class="ghost" id="resetSampleBtn" type="button">Restaurar SINAPI</button>
+        </div>
+
+        <div class="service-list" id="serviceList"></div>
+      </section>
+    </main>
+
+    <section class="export-panel" id="exportPanel" hidden>
+      <div class="export-box">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Exportacao</p>
+            <h2>CSV do orcamento</h2>
+          </div>
+          <button class="ghost" id="closeExportBtn" type="button">Fechar</button>
+        </div>
+        <a class="primary download-link" id="downloadCsvLink" href="#" download="orcamento.csv">Baixar CSV</a>
+        <textarea id="exportCsvPreview" readonly></textarea>
+      </div>
+    </section>
+
+    <section class="print-area" id="printArea" aria-hidden="true"></section>
+
+    <template id="serviceCardTemplate">
+      <article class="service-card">
+        <div>
+          <strong class="service-code"></strong>
+          <p class="service-description"></p>
+          <span class="service-meta"></span>
+        </div>
+        <button class="icon-button" type="button" aria-label="Excluir serviço">×</button>
+      </article>
+    </template>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="sinapi-data.js"></script>
+    <script src="app.js?v=20260620-12"></script>
+  </body>
+</html>

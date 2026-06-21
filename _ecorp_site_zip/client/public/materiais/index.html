@@ -1,0 +1,1084 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sistema ECORP | Materiais</title>
+    <style>
+      :root {
+        --bg: #f6f7f3;
+        --surface: #fff;
+        --soft: #eef3ea;
+        --line: #dce3d8;
+        --brand: #2d6a4f;
+        --brand-dark: #1f513c;
+        --text: #1c241d;
+        --muted: #667066;
+        --danger: #a73535;
+        --shadow: 0 16px 40px rgba(33, 48, 39, 0.09);
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--text); font-family: Arial, Helvetica, sans-serif; }
+      button, input, select, textarea { font: inherit; }
+      a { color: inherit; text-decoration: none; }
+      .topbar { align-items: center; background: var(--brand); color: #fff; display: flex; justify-content: space-between; min-height: 106px; padding: 24px clamp(18px, 5vw, 56px); }
+      h1, h2, h3, p { margin: 0; }
+      .eyebrow { color: inherit; font-size: .76rem; font-weight: 800; letter-spacing: .08em; margin-bottom: 6px; text-transform: uppercase; }
+      .topbar .eyebrow { opacity: .78; }
+      .topbar-actions, .section-header, .actions, .toolbar { align-items: center; display: flex; flex-wrap: wrap; gap: 10px; }
+      .layout { display: grid; gap: 20px; grid-template-columns: minmax(0, 1fr) 340px; padding: 24px clamp(18px, 5vw, 56px) 48px; }
+      .panel, .summary { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; box-shadow: var(--shadow); padding: 20px; }
+      .wide { grid-column: 1 / -1; }
+      .section-header { justify-content: space-between; margin-bottom: 16px; }
+      .panel .eyebrow, .summary .eyebrow { color: var(--brand); }
+      .hint { color: var(--muted); font-size: .92rem; line-height: 1.5; margin-top: 8px; }
+      button, .file-button, .button-link { border: 0; border-radius: 6px; cursor: pointer; font-weight: 800; min-height: 42px; padding: 10px 14px; }
+      .button-link { align-items: center; display: inline-flex; justify-content: center; }
+      .primary { background: var(--brand); color: #fff; }
+      .primary:hover { background: var(--brand-dark); }
+      .ghost { background: rgba(45,106,79,.1); color: var(--brand-dark); }
+      .danger { background: #f8e8e8; color: var(--danger); }
+      .file-button { align-items: center; background: var(--brand); color: #fff; display: inline-flex; justify-content: center; }
+      .file-button input { display: none; }
+      label { color: var(--muted); display: grid; font-size: .86rem; font-weight: 800; gap: 7px; }
+      input, select, textarea { border: 1px solid var(--line); border-radius: 6px; color: var(--text); min-height: 42px; padding: 9px 11px; width: 100%; }
+      textarea { min-height: 160px; resize: vertical; }
+      .grid { display: grid; gap: 12px; }
+      .grid.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .grid.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+      .import-box { background: #fbfcfa; border: 1px solid rgba(45,106,79,.25); border-radius: 8px; margin-top: 14px; padding: 16px; }
+      .stats { display: grid; gap: 10px; margin: 14px 0; }
+      .stats div { border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; padding: 10px 0; }
+      .stats strong { font-size: 1.15rem; }
+      table { border-collapse: collapse; min-width: 920px; width: 100%; }
+      th, td { border-bottom: 1px solid var(--line); padding: 10px 8px; text-align: left; vertical-align: top; }
+      th { background: var(--soft); color: var(--muted); font-size: .8rem; }
+      .table-wrap { overflow-x: auto; }
+      .badge { background: var(--soft); border-radius: 999px; display: inline-block; font-size: .78rem; font-weight: 800; padding: 4px 8px; }
+      .empty { border: 1px dashed var(--line); border-radius: 8px; color: var(--muted); padding: 18px; text-align: center; }
+      .preview-list { display: grid; gap: 10px; margin-top: 14px; }
+      .preview-card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+      .preview-table input { min-width: 110px; }
+      .preview-table input[name="item"],
+      .preview-table input[name="supplier"] { min-width: 220px; }
+      .search-panel { background: #fbfcfa; border: 1px solid rgba(45,106,79,.25); border-radius: 8px; margin-bottom: 14px; padding: 16px; }
+      .search-panel input { font-size: 1.05rem; min-height: 48px; }
+      @media (max-width: 900px) {
+        .topbar, .layout { display: grid; grid-template-columns: 1fr; }
+        .grid.cols-2, .grid.cols-4 { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Banco de materiais</p>
+        <h1>Custos reais de materiais</h1>
+      </div>
+      <div class="topbar-actions">
+        <a class="button-link ghost" href="/integracao-preview.html#inicio">Voltar ao inicio</a>
+        <button class="ghost" id="exportBtn" type="button">Backup JSON</button>
+        <label class="file-button">Importar backup<input id="importBackupInput" accept=".json,application/json" type="file" /></label>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="panel wide">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Importacao</p>
+            <h2>Ler NFe em PDF ou XML</h2>
+          </div>
+          <label class="file-button">Anexar NFe<input id="nfeInput" accept=".pdf,.xml,application/pdf,text/xml,application/xml" multiple type="file" /></label>
+        </div>
+        <p class="hint">XML da NFe é o mais preciso. PDF funciona quando o texto da nota é pesquisável; se vier como imagem, cole o texto ou cadastre manualmente.</p>
+        <div class="import-box">
+          <div class="grid cols-2">
+            <label>Texto extraido / colado da NFe<textarea id="nfeText" placeholder="Cole aqui o texto da NFe quando o PDF for imagem ou quando quiser conferir a leitura."></textarea></label>
+            <div class="grid">
+              <button class="primary" id="parseTextBtn" type="button">Extrair itens do texto</button>
+              <button class="ghost" id="savePreviewBtn" type="button">Salvar itens extraidos</button>
+              <p class="hint" id="importStatus">Nenhuma NFe importada ainda.</p>
+            </div>
+          </div>
+          <div class="preview-list" id="previewList"></div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Cadastro manual</p>
+            <h2>Adicionar compra</h2>
+          </div>
+        </div>
+        <form class="grid cols-2" id="manualForm">
+          <label>Fornecedor<input id="manualSupplier" required /></label>
+          <label>Data da compra<input id="manualDate" type="date" required /></label>
+          <label>Material<input id="manualItem" required placeholder="Ex.: Cimento CP II 50 kg" /></label>
+          <label>Unidade<input id="manualUnit" placeholder="un, m2, kg, saco" /></label>
+          <label>Quantidade<input id="manualQty" min="0" step="0.0001" type="number" value="1" /></label>
+          <label>Valor unitario<input id="manualUnitPrice" min="0" step="0.01" type="number" /></label>
+          <label>Valor total<input id="manualTotal" min="0" step="0.01" type="number" /></label>
+          <label>Numero NFe<input id="manualInvoice" /></label>
+          <button class="primary" type="submit">Salvar compra</button>
+        </form>
+      </section>
+
+      <aside class="summary">
+        <p class="eyebrow">Resumo</p>
+        <h2>Indicadores</h2>
+        <div class="stats">
+          <div><span>Compras salvas</span><strong id="statPurchases">0</strong></div>
+          <div><span>Materiais unicos</span><strong id="statMaterials">0</strong></div>
+          <div><span>Fornecedores</span><strong id="statSuppliers">0</strong></div>
+          <div><span>Total comprado</span><strong id="statTotal">R$ 0,00</strong></div>
+        </div>
+      </aside>
+
+      <section class="panel wide">
+        <div class="section-header">
+          <div>
+            <p class="eyebrow">Historico e comparativo</p>
+            <h2>Compras de materiais</h2>
+          </div>
+          <div class="toolbar">
+            <select id="materialFilter"><option value="">Todos os materiais</option></select>
+          </div>
+        </div>
+        <div class="search-panel">
+          <label>
+            Consultar material por palavra-chave
+            <input id="searchInput" type="search" placeholder="Digite, por exemplo: cimento, areia, bloco, tinta, tubo..." />
+          </label>
+          <p class="hint">Digite parte do nome do material para ver ultimo preco pago, preco medio, menor valor e fornecedores.</p>
+        </div>
+        <div id="materialSummary"></div>
+        <div class="table-wrap" style="margin-top:14px">
+          <table>
+            <thead>
+              <tr>
+                <th>Material</th>
+                <th>Fornecedor</th>
+                <th>Data</th>
+                <th>Qtd.</th>
+                <th>Un.</th>
+                <th>Unitario</th>
+                <th>Total</th>
+                <th>NFe</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="purchaseRows"></tbody>
+          </table>
+          <p class="empty" id="emptyState">Nenhuma compra salva ainda.</p>
+        </div>
+      </section>
+    </main>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script>
+      const STORAGE_KEY = "ecorp-materiais-v1";
+      let purchases = loadPurchases();
+      let previewItems = [];
+      const els = {
+        nfeInput: document.querySelector("#nfeInput"),
+        nfeText: document.querySelector("#nfeText"),
+        parseTextBtn: document.querySelector("#parseTextBtn"),
+        savePreviewBtn: document.querySelector("#savePreviewBtn"),
+        importStatus: document.querySelector("#importStatus"),
+        previewList: document.querySelector("#previewList"),
+        manualForm: document.querySelector("#manualForm"),
+        searchInput: document.querySelector("#searchInput"),
+        materialFilter: document.querySelector("#materialFilter"),
+        purchaseRows: document.querySelector("#purchaseRows"),
+        emptyState: document.querySelector("#emptyState"),
+        materialSummary: document.querySelector("#materialSummary"),
+        statPurchases: document.querySelector("#statPurchases"),
+        statMaterials: document.querySelector("#statMaterials"),
+        statSuppliers: document.querySelector("#statSuppliers"),
+        statTotal: document.querySelector("#statTotal"),
+        exportBtn: document.querySelector("#exportBtn"),
+        importBackupInput: document.querySelector("#importBackupInput")
+      };
+
+      els.nfeInput.addEventListener("change", importNfeFiles);
+      els.parseTextBtn.addEventListener("click", () => setPreview(parseNfeTextEssential(els.nfeText.value)));
+      els.savePreviewBtn.addEventListener("click", savePreviewItems);
+      els.manualForm.addEventListener("submit", saveManualPurchase);
+      els.searchInput.addEventListener("input", render);
+      els.materialFilter.addEventListener("change", render);
+      els.exportBtn.addEventListener("click", exportBackup);
+      els.importBackupInput.addEventListener("change", importBackup);
+      render();
+
+      function loadPurchases() {
+        try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; } catch { return []; }
+      }
+
+      function savePurchases() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(purchases));
+      }
+
+      async function importNfeFiles(event) {
+        const files = Array.from(event.target.files || []);
+        if (!files.length) return;
+        setStatus(`Lendo ${files.length} arquivo(s)...`);
+        const imported = [];
+        const textParts = [];
+
+        for (const file of files) {
+          const name = file.name.toLowerCase();
+          if (name.endsWith(".xml")) {
+            const xmlText = await file.text();
+            textParts.push(xmlText);
+            imported.push(...parseNfeXml(xmlText, file.name));
+          } else if (name.endsWith(".pdf")) {
+            const text = await readPdfText(file);
+            textParts.push(`--- ${file.name} ---\n${text}`);
+            imported.push(...parseNfeTextEssential(text, file.name));
+          }
+        }
+
+        els.nfeText.value = textParts.join("\n\n").slice(0, 50000);
+        setPreview(imported);
+        setStatus(imported.length ? `${imported.length} item(ns) extraido(s). Confira e clique em Salvar.` : "Nao encontrei itens claros. Cole o texto ou cadastre manualmente.");
+      }
+
+      async function readPdfText(file) {
+        if (!window.pdfjsLib) return "";
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+        const pdf = await window.pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+        const pages = [];
+        for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+          const page = await pdf.getPage(pageNumber);
+          const content = await page.getTextContent();
+          pages.push(content.items.map(item => item.str).join("\n"));
+        }
+        return pages.join("\n");
+      }
+
+      function parseNfeXml(xmlText, sourceName = "") {
+        const doc = new DOMParser().parseFromString(xmlText, "application/xml");
+        const supplier = textOf(doc, "emit xNome") || textOf(doc, "xNome") || "Fornecedor nao identificado";
+        const date = normalizeDate(textOf(doc, "ide dhEmi") || textOf(doc, "dhEmi") || textOf(doc, "dEmi"));
+        const invoice = textOf(doc, "ide nNF") || sourceName;
+        return Array.from(doc.querySelectorAll("det")).map(det => {
+          const prod = det.querySelector("prod");
+          const qty = number(textOf(prod, "qCom") || textOf(prod, "qTrib") || "1");
+          const unitPrice = number(textOf(prod, "vUnCom") || textOf(prod, "vUnTrib"));
+          const total = number(textOf(prod, "vProd")) || qty * unitPrice;
+          return normalizePurchase({
+            supplier,
+            date,
+            invoice,
+            item: textOf(prod, "xProd"),
+            unit: textOf(prod, "uCom") || textOf(prod, "uTrib"),
+            quantity: qty,
+            unitPrice: unitPrice || total / Math.max(qty, 1),
+            total,
+            source: sourceName || "XML NFe"
+          });
+        }).filter(item => item.item && item.total > 0);
+      }
+
+      function textOf(root, selector) {
+        if (!root) return "";
+        const el = root.querySelector(selector);
+        return el ? el.textContent.trim() : "";
+      }
+
+      function parseNfeText(text, sourceName = "PDF/texto") {
+        const clean = String(text || "").replace(/\s+/g, " ").trim();
+        const supplier = findFirst(clean, [
+          /(?:emitente|fornecedor|raz[aã]o social)\s*[:\-]?\s*([A-Z0-9 .,&\-\/]{5,80})/i,
+          /(?:DANFE|NF-e).{0,120}?([A-Z][A-Z0-9 .,&\-\/]{8,80})/i
+        ]) || "Fornecedor nao identificado";
+        const date = normalizeDate(findFirst(clean, [
+          /(?:data(?:\s+de)?\s+(?:emiss[aã]o|compra)|emiss[aã]o)\s*[:\-]?\s*(\d{2}\/\d{2}\/\d{4})/i,
+          /(\d{2}\/\d{2}\/\d{4})/
+        ]));
+        const invoice = findFirst(clean, [/(?:n[ºo]\s*|numero\s*)?(?:nf-e|nfe|nota fiscal)\s*[:\-]?\s*(\d{3,})/i]) || sourceName;
+        const matches = Array.from(clean.matchAll(/([A-Z0-9][A-Z0-9 \-.,/%]{5,80})\s+(\d+(?:[,.]\d{1,4})?)\s*(UN|UND|PC|PÇ|KG|M2|M3|M|SC|SACO|CX|LT|L)?\s+(?:R?\$?\s*)?(\d{1,6}(?:[,.]\d{2,4})?)\s+(?:R?\$?\s*)?(\d{1,8}(?:[,.]\d{2}))/gi));
+        return matches.slice(0, 120).map(match => {
+          const qty = number(match[2]);
+          const unitPrice = number(match[4]);
+          const total = number(match[5]) || qty * unitPrice;
+          return normalizePurchase({
+            supplier,
+            date,
+            invoice,
+            item: cleanupItemName(match[1]),
+            unit: match[3] || "un",
+            quantity: qty,
+            unitPrice: unitPrice || total / Math.max(qty, 1),
+            total,
+            source: sourceName
+          });
+        }).filter(item => item.item && item.total > 0);
+      }
+
+      function parseNfeTextEssential(text, sourceName = "PDF/texto") {
+        const raw = String(text || "");
+        const clean = raw.replace(/\s+/g, " ").trim();
+        const supplier = cleanSupplierName(extractDanfSupplier(raw) || findFirst(clean, [
+          /(?:fornecedor|emitente|razao social|nome)\s*[:\-]?\s*([A-Z0-9 .,&\-\/]{5,90})/i,
+          /(?:DANFE|NF-e|NFE).{0,140}?([A-Z][A-Z0-9 .,&\-\/]{8,90})/i
+        ]) || "Fornecedor nao identificado");
+        const date = normalizeDate(extractDanfDate(raw) || findFirst(clean, [
+          /(?:data|emissao|compra)\s*[:\-]?\s*(\d{2}\/\d{2}\/\d{4})/i,
+          /(\d{2}\/\d{2}\/\d{4})/,
+          /(\d{4}-\d{2}-\d{2})/
+        ]));
+        const invoice = findFirst(clean, [/(?:nf-e|nfe|nota fiscal|numero|nro|n[ºo])\s*[:\-]?\s*(\d{3,})/i]) || sourceName;
+        const essentialItems = extractDanfProductTable(raw);
+        const items = essentialItems.length ? essentialItems : extractEssentialItems(raw);
+        return items.map(item => normalizePurchase({
+          supplier,
+          date,
+          invoice,
+          item: item.item,
+          unit: item.unit || "un",
+          quantity: item.quantity,
+          unitPrice: item.unitPrice || item.total / Math.max(item.quantity, 1),
+          total: item.total,
+          source: sourceName
+        })).filter(isEssentialPurchase);
+      }
+
+      function extractDanfSupplier(text) {
+        const lines = getPdfLines(text);
+        const receivedText = lines.join(" ");
+        const receivedMatch = receivedText.match(/RECEBEMOS\s+DE\s+(.+?)\s+OS\s+PRODUTOS/i);
+        if (receivedMatch && isLikelyCompanyName(receivedMatch[1])) {
+          return receivedMatch[1];
+        }
+
+        const receivedIndex = lines.findIndex(line => normalize(line).includes("recebemos de"));
+        if (receivedIndex !== -1) {
+          const nearby = lines.slice(receivedIndex, receivedIndex + 6).join(" ");
+          const nearbyMatch = nearby.match(/RECEBEMOS\s+DE\s+(.+?)(?:\s+OS\s+PRODUTOS|\s+NF-e|\s+NFE|$)/i);
+          if (nearbyMatch && isLikelyCompanyName(nearbyMatch[1])) {
+            return nearbyMatch[1];
+          }
+        }
+
+        const productsIndex = lines.findIndex(line => normalize(line).includes("dados dos produtos"));
+        const searchLimit = productsIndex > 0 ? productsIndex : Math.min(lines.length, 80);
+        for (let i = 0; i < searchLimit; i += 1) {
+          if (isLikelyCompanyName(lines[i])) return lines[i];
+        }
+        return "";
+      }
+
+      function extractDanfDate(text) {
+        const lines = getPdfLines(text);
+        const flat = lines.join(" ");
+        const flatMatch = flat.match(/DATA\s+DE\s+EMISS\S*.{0,160}?(\d{2}\/\d{2}\/\d{4})/i);
+        if (flatMatch) return flatMatch[1];
+
+        const emissionIndex = lines.findIndex(line => normalize(line).includes("data de emissao"));
+        if (emissionIndex !== -1) {
+          const nearbyDate = findNextValue(lines, emissionIndex + 1, 14, line => /\d{2}\/\d{2}\/\d{4}/.test(line));
+          if (nearbyDate) return nearbyDate.match(/\d{2}\/\d{2}\/\d{4}/)[0];
+        }
+        const receivedIndex = lines.findIndex(line => normalize(line).includes("data de recebimento"));
+        if (receivedIndex !== -1) {
+          const nearbyDate = findNextValue(lines, receivedIndex + 1, 8, line => /\d{2}\/\d{2}\/\d{4}/.test(line));
+          if (nearbyDate) return nearbyDate.match(/\d{2}\/\d{2}\/\d{4}/)[0];
+        }
+        return "";
+      }
+
+      function extractDanfProductTable(text) {
+        const lines = getPdfLines(text);
+        const hasAfterNumberLayout = lines.some(line => normalize(line).includes("dados do produto"));
+        if (hasAfterNumberLayout) {
+          const afterNumberItems = extractDanfProductTableAfterNumbers(lines);
+          if (afterNumberItems.length) return afterNumberItems;
+        }
+
+        let start = lines.findIndex(line => normalize(line).includes("dados dos produtos"));
+        if (start === -1) {
+          start = lines.findIndex((line, index) =>
+            isLikelyProductDescription(line) &&
+            findNextIndex(lines, index + 1, 8, value => /^\d{8}$/.test(value)) !== -1
+          );
+        }
+        if (start === -1) return [];
+        const endCandidates = ["inscricao municipal", "dados adicionais", "calculo do issqn", "informacoes complementares"];
+        const end = lines.findIndex((line, index) => index > start && endCandidates.some(term => normalize(line).includes(term)));
+        const table = lines.slice(start, end > start ? end : lines.length);
+        const items = [];
+
+        for (let i = 0; i < table.length; i += 1) {
+          const description = table[i];
+          if (!isLikelyProductDescription(description)) continue;
+
+          const ncmIndex = findNextIndex(table, i + 1, 8, line => /^\d{8}$/.test(line));
+          if (ncmIndex === -1) continue;
+          const unitIndex = findNextIndex(table, ncmIndex + 1, 5, line => isUnitToken(line));
+          if (unitIndex === -1) continue;
+
+          const quantity = number(table[unitIndex + 1]);
+          const unitPrice = number(table[unitIndex + 2]);
+          const total = number(table[unitIndex + 3]);
+          if (!quantity || !total) continue;
+          if (unitPrice && Math.abs(quantity * unitPrice - total) > Math.max(total * 0.12, 0.5)) continue;
+
+          items.push({
+            item: cleanupItemName(description),
+            unit: normalizeUnit(table[unitIndex]),
+            quantity,
+            unitPrice: unitPrice || total / Math.max(quantity, 1),
+            total
+          });
+        }
+
+        return dedupeEssentialItems(items.filter(isEssentialItem));
+      }
+
+      function extractDanfProductTableAfterNumbers(lines) {
+        const items = [];
+        const starts = lines
+          .map((line, index) => normalize(line).includes("dados do produto") ? index : -1)
+          .filter(index => index !== -1);
+        const ranges = starts.length ? starts : [0];
+
+        ranges.forEach((rangeStart, position) => {
+          const rangeEnd = starts[position + 1] || lines.length;
+          const chunk = lines.slice(rangeStart, rangeEnd);
+
+          for (let i = 0; i < chunk.length; i += 1) {
+            if (!isUnitToken(chunk[i])) continue;
+            if (!/^\d{4}$/.test(chunk[i - 1] || "")) continue;
+
+            const quantity = number(chunk[i + 1]);
+            const unitPrice = number(chunk[i + 2]);
+            const total = number(chunk[i + 3]);
+            if (!quantity || !unitPrice || !total) continue;
+            if (Math.abs(quantity * unitPrice - total) > Math.max(total * 0.12, 0.5)) continue;
+
+            const descriptionIndex = findNextIndex(chunk, i + 4, 16, line =>
+              isLikelyProductDescription(line) && !isProductNoteLine(line)
+            );
+            if (descriptionIndex === -1) continue;
+
+            items.push({
+              item: cleanupItemName(chunk[descriptionIndex]),
+              unit: normalizeUnit(chunk[i]),
+              quantity,
+              unitPrice,
+              total
+            });
+          }
+        });
+
+        return dedupeEssentialItems(items.filter(isEssentialItem));
+      }
+
+      function getPdfLines(text) {
+        return String(text || "")
+          .split(/\r?\n/)
+          .map(line => line.replace(/\s+/g, " ").trim())
+          .filter(Boolean);
+      }
+
+      function findNextIndex(lines, start, distance, predicate) {
+        const end = Math.min(lines.length, start + distance);
+        for (let i = start; i < end; i += 1) {
+          if (predicate(lines[i])) return i;
+        }
+        return -1;
+      }
+
+      function findNextValue(lines, start, distance, predicate) {
+        const index = findNextIndex(lines, start, distance, predicate);
+        return index === -1 ? "" : lines[index];
+      }
+
+      function isUnitToken(value) {
+        return /^(UN|UND|PC|PÇ|PÃ‡|KG|M2|M3|M|MT|SC|SACO|CX|LT|L|BD|RL)$/i.test(cleanupItemName(value));
+      }
+
+      function isLikelyProductDescription(value) {
+        const text = cleanupItemName(value);
+        if (text.length < 6 || text.length > 100) return false;
+        if (isDocumentLikeLine(text) || isIgnoredNfeLine(text)) return false;
+        if (isProductNoteLine(text)) return false;
+        if (/^\d+([,.]\d+)?$/.test(text)) return false;
+        if (/^[A-Z]{1,4}$/.test(text)) return false;
+        return /[A-ZÁ-Ú]{3,}/i.test(text);
+      }
+
+      function isProductNoteLine(value) {
+        return /nao aceitamos|n[aã]o aceitamos|devolucao|devolu[çc][aã]o|fci\s*no|continuacao|continua[çc][aã]o|informacoes complementares|informa[çc][oõ]es complementares|reservado ao fisco|vendedores?:|imposto recolhido/i.test(value);
+      }
+
+      function isLikelyCompanyName(value) {
+        const text = cleanupItemName(value);
+        if (text.length < 8 || text.length > 90) return false;
+        if (isDocumentLikeLine(text) || isIgnoredNfeLine(text)) return false;
+        return /\b(LTDA|EIRELI|S\/A|SA|ME|EPP|COMERCIO|COMÉRCIO|MATERIAIS|CONSTRU)\b/i.test(text);
+      }
+
+      function extractEssentialItems(text) {
+        const lines = String(text || "")
+          .split(/\r?\n| {2,}/)
+          .map(line => line.replace(/\s+/g, " ").trim())
+          .filter(Boolean)
+          .filter(line => !isIgnoredNfeLine(line))
+          .filter(line => !isDocumentLikeLine(line));
+        const items = [];
+
+        for (const line of lines) {
+          const parsed = parseEssentialLine(line);
+          if (parsed) items.push(parsed);
+        }
+
+        if (items.length) return dedupeEssentialItems(items);
+
+        const compact = String(text || "").replace(/\s+/g, " ").trim();
+        const matches = Array.from(compact.matchAll(/([A-Z0-9][A-Z0-9 \-.,/%]{8,80})\s+(\d+(?:[,.]\d{1,4})?)\s*(?:UN|UND|PC|PÇ|KG|M2|M3|M|SC|SACO|CX|LT|L)?\s+(?:\d{1,6}(?:[,.]\d{2,4})\s+)?(\d{1,8}(?:[,.]\d{2}))/gi));
+        return dedupeEssentialItems(matches.map(match => ({
+          item: cleanupItemName(match[1]),
+          quantity: number(match[2]),
+          total: number(match[3])
+        })).filter(isEssentialItem));
+      }
+
+      function parseEssentialLine(line) {
+        const patterns = [
+          /^\d{0,5}\s*(.{6,90}?)\s+(\d+(?:[,.]\d{1,4})?)\s*(?:UN|UND|PC|PÇ|KG|M2|M3|M|SC|SACO|CX|LT|L)?\s+(?:R?\$?\s*)?(?:\d{1,6}(?:[,.]\d{2,4})\s+)?(?:R?\$?\s*)?(\d{1,8}(?:[,.]\d{2}))$/i,
+          /^(.{6,90}?)\s+qtd\.?\s*(\d+(?:[,.]\d{1,4})?).{0,20}?(?:valor|total)\s*(\d{1,8}(?:[,.]\d{2}))/i
+        ];
+
+        for (const pattern of patterns) {
+          const match = line.match(pattern);
+          if (match) {
+            const item = cleanupItemName(match[1]);
+            const quantity = number(match[2]);
+            const total = number(match[3]);
+            const parsed = { item, quantity, total };
+            if (isEssentialItem(parsed)) return parsed;
+          }
+        }
+
+        return null;
+      }
+
+      function isEssentialItem(item) {
+        if (!item.item || item.item.length < 5) return false;
+        if (!item.quantity || !item.total) return false;
+        if (/total|valor|icms|ipi|pis|cofins|frete|desconto|base de c[aÃ¡]lculo|protocolo|chave|cnpj|cpf|danfe|nota fiscal/i.test(item.item)) return false;
+        return true;
+      }
+
+      function isDocumentLikeLine(line) {
+        const value = normalize(line);
+        const blocked = [
+          "cnpj", "cpf", "inscricao", "estadual", "municipal", "endereco", "bairro", "cep",
+          "fone", "telefone", "email", "chave de acesso", "protocolo", "autorizacao",
+          "natureza da operacao", "base de calculo", "valor total", "total dos produtos",
+          "valor do frete", "valor do seguro", "valor do desconto", "icms", "ipi", "pis",
+          "cofins", "ncm", "cfop", "cst", "csosn", "aliquota", "transportador",
+          "placa", "volume", "peso bruto", "peso liquido", "duplicata", "vencimento",
+          "forma de pagamento", "dados adicionais", "informacoes complementares"
+        ];
+        return blocked.some(word => value.includes(word));
+      }
+
+      function scoreMaterialCandidate(item, originalLine = "") {
+        const name = normalize(item.item);
+        const line = normalize(originalLine);
+        let score = 0;
+
+        if (item.quantity > 0) score += 1;
+        if (item.total > 0) score += 1;
+        if (/[a-z]/i.test(item.item) && item.item.length >= 6) score += 1;
+        if (/\b(un|und|pc|kg|m2|m3|m|sc|saco|cx|lt|l)\b/.test(line)) score += 1;
+        if (/\b(cimento|areia|pedra|brita|bloco|tijolo|cal|argamassa|tinta|massa|tubo|conexao|fio|cabo|telha|madeira|aco|ferro|prego|parafuso|rejunte|gesso|porta|janela|piso|revestimento|cola|silicone|registro|torneira|valvula|caixa|conduite)\b/.test(name)) score += 2;
+        if (/^\d+$/.test(name)) score -= 3;
+        if (name.split(" ").length < 2 && !/\b(cimento|areia|brita|cal|tinta|tubo|telha|gesso)\b/.test(name)) score -= 1;
+        if (isDocumentLikeLine(item.item)) score -= 5;
+
+        return score;
+      }
+
+      function cleanSupplierName(value) {
+        return cleanupItemName(value)
+          .replace(/\s+(data|emissao|emiss[aã]o|compra|cnpj|cpf|endereco|endere[cç]o)\b.*$/i, "")
+          .trim() || "Fornecedor nao identificado";
+      }
+
+      function isEssentialPurchase(item) {
+        return isEssentialItem(item) && scoreMaterialCandidate(item, item.item) >= 3;
+      }
+
+      function dedupeEssentialItems(items) {
+        const seen = new Set();
+        return items.filter(item => {
+          const key = `${normalize(item.item)}|${item.quantity}|${item.total}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      }
+
+      function parseNfeTextStrict(text, sourceName = "PDF/texto") {
+        const rawText = String(text || "");
+        const clean = rawText.replace(/\s+/g, " ").trim();
+        const supplier = findFirst(clean, [
+          /(?:emitente|fornecedor|razao social|raz[aã]o social)\s*[:\-]?\s*([A-Z0-9 .,&\-\/]{5,80})/i,
+          /(?:DANFE|NF-e|NFE).{0,120}?([A-Z][A-Z0-9 .,&\-\/]{8,80})/i
+        ]) || "Fornecedor nao identificado";
+        const date = normalizeDate(findFirst(clean, [
+          /(?:data(?:\s+de)?\s+(?:emissao|emiss[aã]o|compra)|emissao|emiss[aã]o)\s*[:\-]?\s*(\d{2}\/\d{2}\/\d{4})/i,
+          /(\d{2}\/\d{2}\/\d{4})/
+        ]));
+        const invoice = findFirst(clean, [/(?:n[ºo]\s*|numero\s*)?(?:nf-e|nfe|nota fiscal)\s*[:\-]?\s*(\d{3,})/i]) || sourceName;
+
+        return extractProductLinesStrict(rawText).map(line => normalizePurchase({
+          supplier,
+          date,
+          invoice,
+          item: line.item,
+          unit: line.unit || "un",
+          quantity: line.quantity,
+          unitPrice: line.unitPrice || line.total / Math.max(line.quantity, 1),
+          total: line.total,
+          source: sourceName
+        })).filter(isLikelyMaterialPurchase);
+      }
+
+      function extractProductLinesStrict(text) {
+        const lines = String(text || "")
+          .split(/\r?\n| {2,}/)
+          .map(line => line.replace(/\s+/g, " ").trim())
+          .filter(Boolean);
+        const items = [];
+
+        for (const line of lines) {
+          if (isIgnoredNfeLine(line)) continue;
+          const parsed = parseProductLineStrict(line);
+          if (parsed) items.push(parsed);
+        }
+
+        if (items.length) return dedupePreviewItems(items);
+
+        const compact = String(text || "").replace(/\s+/g, " ").trim();
+        const fallback = Array.from(compact.matchAll(/([A-Z0-9][A-Z0-9 \-.,/%]{8,70})\s+(\d+(?:[,.]\d{1,4})?)\s*(UN|UND|PC|PÇ|PÃ‡|KG|M2|M3|M|SC|SACO|CX|LT|L)\s+(\d{1,6}(?:[,.]\d{2,4})?)\s+(\d{1,8}(?:[,.]\d{2}))/gi))
+          .map(match => makeProductLineStrict(match[1], match[2], match[3], match[4], match[5]))
+          .filter(Boolean);
+        return dedupePreviewItems(fallback);
+      }
+
+      function parseProductLineStrict(line) {
+        const patterns = [
+          /^(.{6,90}?)\s+(\d+(?:[,.]\d{1,4})?)\s*(UN|UND|PC|PÇ|PÃ‡|KG|M2|M3|M|SC|SACO|CX|LT|L)\s+(?:R?\$?\s*)?(\d{1,6}(?:[,.]\d{2,4})?)\s+(?:R?\$?\s*)?(\d{1,8}(?:[,.]\d{2}))$/i,
+          /^\d{1,4}\s+(.{6,90}?)\s+(\d+(?:[,.]\d{1,4})?)\s*(UN|UND|PC|PÇ|PÃ‡|KG|M2|M3|M|SC|SACO|CX|LT|L)\s+(?:R?\$?\s*)?(\d{1,6}(?:[,.]\d{2,4})?)\s+(?:R?\$?\s*)?(\d{1,8}(?:[,.]\d{2}))$/i
+        ];
+
+        for (const pattern of patterns) {
+          const match = line.match(pattern);
+          if (match) return makeProductLineStrict(match[1], match[2], match[3], match[4], match[5]);
+        }
+
+        return null;
+      }
+
+      function makeProductLineStrict(itemName, qtyValue, unitValue, unitPriceValue, totalValue) {
+        const item = cleanupItemName(itemName);
+        const quantity = number(qtyValue);
+        const unitPrice = number(unitPriceValue);
+        const total = number(totalValue);
+        if (!item || !quantity || !total) return null;
+
+        const expected = quantity * unitPrice;
+        const tolerance = Math.max(total * 0.08, 0.2);
+        if (unitPrice > 0 && Math.abs(expected - total) > tolerance) return null;
+
+        return { item, quantity, unit: normalizeUnit(unitValue), unitPrice: unitPrice || total / quantity, total };
+      }
+
+      function isIgnoredNfeLine(line) {
+        return /valor total|base de calculo|base de c[aá]lculo|icms|ipi|pis|cofins|frete|seguro|desconto|chave de acesso|protocolo|cnpj|cpf|endereco|endere[cç]o|bairro|municipio|munic[ií]pio|transportador|duplicata|fatura|danfe|nota fiscal/i.test(line);
+      }
+
+      function isLikelyMaterialPurchase(item) {
+        if (!item.item || item.item.length < 5) return false;
+        if (!item.quantity || !item.total || !item.unitPrice) return false;
+        if (/total|icms|ipi|frete|desconto|valor|base calculo|base de calculo|protocolo|chave acesso/i.test(item.item)) return false;
+        return true;
+      }
+
+      function dedupePreviewItems(items) {
+        const seen = new Set();
+        return items.filter(item => {
+          const key = `${normalize(item.item)}|${item.quantity}|${item.unitPrice}|${item.total}`;
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+      }
+
+      function normalizeUnit(value) {
+        return cleanupItemName(value || "un").toLowerCase().replace("pã‡", "pc").replace("pç", "pc");
+      }
+
+      function findFirst(text, patterns) {
+        for (const pattern of patterns) {
+          const match = text.match(pattern);
+          if (match) return cleanupItemName(match[1] || "");
+        }
+        return "";
+      }
+
+      function cleanupItemName(value) {
+        return String(value || "").replace(/\s+/g, " ").replace(/[|;]/g, "").trim();
+      }
+
+      function normalizePurchase(item) {
+        const quantity = number(item.quantity) || 1;
+        const total = number(item.total) || quantity * number(item.unitPrice);
+        return {
+          id: item.id || crypto.randomUUID(),
+          supplier: cleanupItemName(item.supplier) || "Fornecedor nao identificado",
+          date: item.date || new Date().toISOString().slice(0, 10),
+          invoice: cleanupItemName(item.invoice),
+          item: cleanupItemName(item.item),
+          key: materialKey(item.item),
+          unit: cleanupItemName(item.unit || "un").toLowerCase(),
+          quantity,
+          unitPrice: number(item.unitPrice) || total / Math.max(quantity, 1),
+          total,
+          source: item.source || "Manual",
+          createdAt: item.createdAt || new Date().toISOString()
+        };
+      }
+
+      function setPreview(items) {
+        previewItems = items;
+        els.previewList.innerHTML = items.length ? `
+          <div class="table-wrap">
+            <table class="preview-table">
+              <thead>
+                <tr>
+                  <th>Salvar</th>
+                  <th>Material</th>
+                  <th>Fornecedor</th>
+                  <th>Data</th>
+                  <th>Qtd.</th>
+                  <th>Un.</th>
+                  <th>Unitario</th>
+                  <th>Total</th>
+                  <th>NFe</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${items.map((item, index) => `
+                  <tr data-preview-row="${index}">
+                    <td><input name="enabled" type="checkbox" checked /></td>
+                    <td><input name="item" value="${escapeAttr(item.item)}" /></td>
+                    <td><input name="supplier" value="${escapeAttr(item.supplier)}" /></td>
+                    <td><input name="date" type="date" value="${escapeAttr(item.date)}" /></td>
+                    <td><input name="quantity" type="number" step="0.0001" value="${item.quantity}" /></td>
+                    <td><input name="unit" value="${escapeAttr(item.unit)}" /></td>
+                    <td><input name="unitPrice" type="number" step="0.01" value="${roundMoney(item.unitPrice)}" /></td>
+                    <td><input name="total" type="number" step="0.01" value="${roundMoney(item.total)}" /></td>
+                    <td><input name="invoice" value="${escapeAttr(item.invoice)}" /></td>
+                  </tr>`).join("")}
+              </tbody>
+            </table>
+          </div>` : `<div class="empty">Nenhum item confiavel extraido. Prefira XML da NFe, cole o texto da tabela de produtos ou cadastre manualmente.</div>`;
+      }
+
+      function savePreviewItems() {
+        const rows = readPreviewRows();
+        if (!rows.length) {
+          alert("Nao ha itens extraidos para salvar.");
+          return;
+        }
+        purchases.push(...rows.map(item => normalizePurchase(item)));
+        previewItems = [];
+        savePurchases();
+        setPreview([]);
+        setStatus("Itens salvos no banco de materiais.");
+        render();
+      }
+
+      function readPreviewRows() {
+        return Array.from(document.querySelectorAll("[data-preview-row]")).map(row => {
+          const get = name => row.querySelector(`[name="${name}"]`);
+          if (!get("enabled").checked) return null;
+          return normalizePurchase({
+            item: get("item").value,
+            supplier: get("supplier").value,
+            date: get("date").value,
+            quantity: get("quantity").value,
+            unit: get("unit").value,
+            unitPrice: get("unitPrice").value,
+            total: get("total").value,
+            invoice: get("invoice").value,
+            source: "NFe conferida"
+          });
+        }).filter(Boolean).filter(isLikelyMaterialPurchase);
+      }
+
+      function setPreview(items) {
+        previewItems = items;
+        els.previewList.innerHTML = items.length ? `
+          <div class="table-wrap">
+            <table class="preview-table">
+              <thead>
+                <tr>
+                  <th>Salvar</th>
+                  <th>Fornecedor</th>
+                  <th>Data</th>
+                  <th>Item</th>
+                  <th>Quantidade</th>
+                  <th>Un.</th>
+                  <th>Unitario</th>
+                  <th>Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${items.map((item, index) => `
+                  <tr data-preview-row="${index}">
+                    <td><input name="enabled" type="checkbox" checked /></td>
+                    <td><input name="supplier" value="${escapeAttr(item.supplier)}" /></td>
+                    <td><input name="date" type="date" value="${escapeAttr(item.date)}" /></td>
+                    <td><input name="item" value="${escapeAttr(item.item)}" /></td>
+                    <td><input name="quantity" type="number" step="0.0001" value="${item.quantity}" /></td>
+                    <td><input name="unit" value="${escapeAttr(item.unit || "un")}" /></td>
+                    <td><input name="unitPrice" type="number" step="0.01" value="${roundMoney(item.unitPrice)}" /></td>
+                    <td><input name="total" type="number" step="0.01" value="${roundMoney(item.total)}" /></td>
+                  </tr>`).join("")}
+              </tbody>
+            </table>
+          </div>` : `<div class="empty">Nenhum item confiavel extraido. Tente XML da NFe ou cole somente a tabela de produtos.</div>`;
+      }
+
+      function readPreviewRows() {
+        return Array.from(document.querySelectorAll("[data-preview-row]")).map(row => {
+          const get = name => row.querySelector(`[name="${name}"]`);
+          if (!get("enabled").checked) return null;
+          const quantity = number(get("quantity").value);
+          const total = number(get("total").value);
+          return normalizePurchase({
+            supplier: get("supplier").value,
+            date: get("date").value,
+            item: get("item").value,
+            quantity,
+            unit: get("unit").value || "un",
+            unitPrice: number(get("unitPrice").value) || total / Math.max(quantity, 1),
+            total,
+            invoice: "",
+            source: "NFe conferida"
+          });
+        }).filter(Boolean).filter(isEssentialPurchase);
+      }
+
+      function saveManualPurchase(event) {
+        event.preventDefault();
+        const quantity = number(document.querySelector("#manualQty").value) || 1;
+        const unitPrice = number(document.querySelector("#manualUnitPrice").value);
+        const total = number(document.querySelector("#manualTotal").value) || quantity * unitPrice;
+        purchases.push(normalizePurchase({
+          supplier: document.querySelector("#manualSupplier").value,
+          date: document.querySelector("#manualDate").value,
+          invoice: document.querySelector("#manualInvoice").value,
+          item: document.querySelector("#manualItem").value,
+          unit: document.querySelector("#manualUnit").value,
+          quantity,
+          unitPrice: unitPrice || total / Math.max(quantity, 1),
+          total,
+          source: "Manual"
+        }));
+        event.currentTarget.reset();
+        document.querySelector("#manualQty").value = 1;
+        savePurchases();
+        render();
+      }
+
+      function render() {
+        renderFilter();
+        const filtered = getFilteredPurchases();
+        els.emptyState.hidden = filtered.length > 0;
+        els.purchaseRows.innerHTML = filtered.map(item => `
+          <tr>
+            <td><strong>${escapeHtml(item.item)}</strong><br><span class="badge">${escapeHtml(item.key)}</span></td>
+            <td>${escapeHtml(item.supplier)}</td>
+            <td>${formatDate(item.date)}</td>
+            <td>${formatNumber(item.quantity)}</td>
+            <td>${escapeHtml(item.unit)}</td>
+            <td>${money(item.unitPrice)}</td>
+            <td>${money(item.total)}</td>
+            <td>${escapeHtml(item.invoice || "-")}</td>
+            <td><button class="danger" onclick="deletePurchase('${item.id}')" type="button">Excluir</button></td>
+          </tr>`).join("");
+        renderSummary(filtered);
+        renderStats();
+      }
+
+      function getFilteredPurchases() {
+        const search = normalize(els.searchInput.value);
+        const tokens = search.split(" ").filter(Boolean);
+        const material = els.materialFilter.value;
+        return purchases.filter(item => {
+          const okMaterial = !material || item.key === material;
+          const haystack = normalize(`${item.item} ${item.key} ${item.supplier} ${item.invoice}`);
+          const okSearch = !tokens.length || tokens.every(token => haystack.includes(token));
+          return okMaterial && okSearch;
+        }).sort((a, b) => new Date(b.date) - new Date(a.date));
+      }
+
+      function renderFilter() {
+        const current = els.materialFilter.value;
+        const keys = Array.from(new Set(purchases.map(item => item.key))).sort();
+        els.materialFilter.innerHTML = `<option value="">Todos os materiais</option>` + keys.map(key => `<option value="${escapeHtml(key)}">${escapeHtml(key)}</option>`).join("");
+        els.materialFilter.value = keys.includes(current) ? current : "";
+      }
+
+      function renderSummary(items) {
+        if (!items.length) {
+          const search = els.searchInput.value.trim();
+          els.materialSummary.innerHTML = `<div class="empty">${search ? `Nenhuma compra encontrada para "${escapeHtml(search)}".` : "Digite um material para ver ultimo preco, preco medio, menor valor e fornecedores."}</div>`;
+          return;
+        }
+        const groups = groupBy(items, item => item.key);
+        const selectedKey = els.materialFilter.value;
+        const search = normalize(els.searchInput.value);
+        const keys = selectedKey
+          ? [selectedKey]
+          : search
+            ? Object.keys(groups).sort((a, b) => groups[b].length - groups[a].length)
+            : Object.keys(groups).slice(0, 8);
+        els.materialSummary.innerHTML = keys.map(key => {
+          const list = groups[key] || [];
+          const latest = list.slice().sort((a, b) => new Date(b.date) - new Date(a.date))[0];
+          const min = list.reduce((best, item) => item.unitPrice < best.unitPrice ? item : best, list[0]);
+          const avg = list.reduce((sum, item) => sum + item.unitPrice, 0) / list.length;
+          const suppliers = Array.from(new Set(list.map(item => item.supplier))).join(", ");
+          return `<div class="preview-card">
+            <strong>${escapeHtml(key)}</strong>
+            <p class="hint">Ultimo preco: ${money(latest.unitPrice)} em ${formatDate(latest.date)} (${escapeHtml(latest.supplier)})</p>
+            <p class="hint">Preco medio: ${money(avg)} | Menor valor: ${money(min.unitPrice)} (${escapeHtml(min.supplier)})</p>
+            <p class="hint">Fornecedores: ${escapeHtml(suppliers)}</p>
+          </div>`;
+        }).join("");
+      }
+
+      function renderStats() {
+        els.statPurchases.textContent = purchases.length;
+        els.statMaterials.textContent = new Set(purchases.map(item => item.key)).size;
+        els.statSuppliers.textContent = new Set(purchases.map(item => item.supplier)).size;
+        els.statTotal.textContent = money(purchases.reduce((sum, item) => sum + item.total, 0));
+      }
+
+      window.deletePurchase = id => {
+        if (!confirm("Excluir esta compra?")) return;
+        purchases = purchases.filter(item => item.id !== id);
+        savePurchases();
+        render();
+      };
+
+      function exportBackup() {
+        const blob = new Blob([JSON.stringify({ type: "materials-db", purchases, exportedAt: new Date().toISOString() }, null, 2)], { type: "application/json" });
+        downloadBlob(blob, `banco-materiais-ecorp-${Date.now()}.json`);
+      }
+
+      async function importBackup(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        try {
+          const data = JSON.parse(await file.text());
+          const rows = Array.isArray(data) ? data : data.purchases;
+          if (!Array.isArray(rows)) throw new Error("invalid");
+          purchases.push(...rows.map(normalizePurchase));
+          savePurchases();
+          render();
+          setStatus("Backup importado.");
+        } catch {
+          alert("Nao consegui importar este backup JSON.");
+        }
+      }
+
+      function materialKey(value) {
+        return normalize(value)
+          .replace(/\b(cp|cx|un|und|kg|m2|m3|sc|saco|lt|l)\b/g, "")
+          .replace(/\b\d+(?:[,.]\d+)?\b/g, "")
+          .replace(/\s+/g, " ")
+          .trim()
+          .slice(0, 60) || "material";
+      }
+
+      function normalize(value) {
+        return String(value || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
+      }
+
+      function number(value) {
+        if (typeof value === "number") return value;
+        const raw = String(value || "").trim();
+        if (raw.includes(",") && raw.includes(".")) return Number(raw.replace(/\./g, "").replace(",", ".")) || 0;
+        if (raw.includes(",")) return Number(raw.replace(",", ".")) || 0;
+        return Number(raw) || 0;
+      }
+
+      function normalizeDate(value) {
+        const text = String(value || "").trim();
+        if (/^\d{4}-\d{2}-\d{2}/.test(text)) return text.slice(0, 10);
+        const br = text.match(/(\d{2})\/(\d{2})\/(\d{4})/);
+        if (br) return `${br[3]}-${br[2]}-${br[1]}`;
+        return new Date().toISOString().slice(0, 10);
+      }
+
+      function formatDate(value) {
+        if (!value) return "-";
+        return new Intl.DateTimeFormat("pt-BR").format(new Date(`${value}T00:00:00`));
+      }
+
+      function formatNumber(value) {
+        return new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 4 }).format(number(value));
+      }
+
+      function money(value) {
+        return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(number(value));
+      }
+
+      function escapeHtml(value) {
+        return String(value ?? "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
+      }
+
+      function escapeAttr(value) {
+        return escapeHtml(value).replace(/`/g, "&#96;");
+      }
+
+      function roundMoney(value) {
+        return Math.round(number(value) * 100) / 100;
+      }
+
+      function groupBy(rows, fn) {
+        return rows.reduce((acc, row) => {
+          const key = fn(row);
+          acc[key] ||= [];
+          acc[key].push(row);
+          return acc;
+        }, {});
+      }
+
+      function downloadBlob(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        link.click();
+        URL.revokeObjectURL(url);
+      }
+
+      function setStatus(message) {
+        els.importStatus.textContent = message;
+      }
+    </script>
+  </body>
+</html>

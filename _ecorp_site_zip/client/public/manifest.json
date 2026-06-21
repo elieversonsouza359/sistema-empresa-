@@ -1,0 +1,52 @@
+{
+  "name": "E-CORP SERVIÇOS - Gestão de Colaboradores e Obras",
+  "short_name": "E-CORP",
+  "description": "Sistema de gestão de colaboradores, obras e pendências para construção civil",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1e293b",
+  "theme_color": "#d4a017",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/logo-ecorp.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo-ecorp.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["business", "productivity"],
+  "lang": "pt-BR",
+  "dir": "ltr",
+  "scope": "/",
+  "prefer_related_applications": false,
+  "shortcuts": [
+    {
+      "name": "Registrar Ponto",
+      "short_name": "Ponto",
+      "description": "Registrar ponto de entrada/saída",
+      "url": "/ponto",
+      "icons": [{ "src": "/logo-ecorp.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Mapa de Unidades",
+      "short_name": "Mapa",
+      "description": "Visualizar mapa de unidades e pendências",
+      "url": "/mapa",
+      "icons": [{ "src": "/logo-ecorp.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Área do Colaborador",
+      "short_name": "Colaborador",
+      "description": "Acessar área do colaborador",
+      "url": "/colaborador",
+      "icons": [{ "src": "/logo-ecorp.png", "sizes": "192x192" }]
+    }
+  ]
+}
