@@ -1,8 +1,17 @@
 const STORAGE_KEY = "ecorp-orcamentos-v1";
 const SINAPI_SOURCE = "SINAPI-SP-2024-12-NAO-DESONERADO";
-const DATA_VERSION = window.SINAPI_DATA?.version || "SEM-BASE-SINAPI";
+const CDHU_SOURCE = "CDHU-SP-2026-02-BDI-20.81";
+const DATA_VERSION = `${window.SINAPI_DATA?.version || "SEM-BASE-SINAPI"}|${window.CDHU_DATA?.version || "SEM-BASE-CDHU"}`;
 const SERVICE_LIST_LIMIT = 80;
 const SUGGESTION_LIMIT = 12;
+const BUDGET_BASE_OPTIONS = {
+  sinapi: { label: "SINAPI SP", source: SINAPI_SOURCE },
+  cdhu: { label: "CDHU SP", source: CDHU_SOURCE }
+};
+const BUDGET_SCOPE_OPTIONS = {
+  labor_material: "Material + mao de obra",
+  labor_only: "Apenas mao de obra"
+};
 const PROJECT_READER_RULES = [
   { key: "baldrame", label: "Viga baldrame", units: ["m", "m3"], terms: ["baldrame", "viga baldrame"] },
   { key: "alvenaria", label: "Alvenaria", units: ["m2"], terms: ["alvenaria", "parede", "vedacao"] },
@@ -53,7 +62,7 @@ const MASONRY_TYPE_OPTIONS = [
   },
   {
     value: "generica",
-    label: "Generica / melhor item SINAPI encontrado",
+    label: "Generica / melhor item da base escolhida",
     terms: ["alvenaria", "parede", "vedacao"]
   }
 ];
@@ -113,6 +122,8 @@ const els = {
   projectName: document.querySelector("#projectName"),
   cityName: document.querySelector("#cityName"),
   bdiInput: document.querySelector("#bdiInput"),
+  budgetDataSource: document.querySelector("#budgetDataSource"),
+  budgetCostScope: document.querySelector("#budgetCostScope"),
   budgetServiceSearch: document.querySelector("#budgetServiceSearch"),
   selectedServiceCode: document.querySelector("#selectedServiceCode"),
   budgetSuggestions: document.querySelector("#budgetSuggestions"),
@@ -131,6 +142,7 @@ const els = {
   servicePrice: document.querySelector("#servicePrice"),
   serviceList: document.querySelector("#serviceList"),
   serviceCardTemplate: document.querySelector("#serviceCardTemplate"),
+  serviceBaseEyebrow: document.querySelector("#serviceBaseEyebrow"),
   searchInput: document.querySelector("#searchInput"),
   csvInput: document.querySelector("#csvInput"),
   resetSampleBtn: document.querySelector("#resetSampleBtn"),
@@ -202,6 +214,8 @@ els.clientName.addEventListener("input", updateBudgetMeta);
 els.projectName.addEventListener("input", updateBudgetMeta);
 els.cityName.addEventListener("input", updateBudgetMeta);
 els.bdiInput.addEventListener("input", updateBudgetMeta);
+els.budgetDataSource?.addEventListener("change", updateBudgetOptions);
+els.budgetCostScope?.addEventListener("change", updateBudgetOptions);
 els.budgetServiceSearch.addEventListener("input", updateBudgetSuggestions);
 els.budgetServiceSearch.addEventListener("focus", updateBudgetSuggestions);
 els.budgetServiceSearch.addEventListener("keydown", handleSuggestionKeys);
@@ -246,6 +260,8 @@ function loadState() {
     project: "",
     city: "",
     bdi: 20,
+    dataSource: "sinapi",
+    costScope: "labor_material",
     items: []
   };
 
@@ -256,7 +272,7 @@ function loadState() {
         dataVersion: DATA_VERSION,
         hiddenServiceCodes: [],
         services: baseServices,
-        budget: fallbackBudget,
+        budget: normalizeBudget(fallbackBudget),
         currentBudgetId: null,
         savedBudgets: []
       };
@@ -270,20 +286,41 @@ function loadState() {
       dataVersion: DATA_VERSION,
       hiddenServiceCodes,
       services: mergeServices(visibleBaseServices, customServices),
-      budget: saved.budget || fallbackBudget,
+      budget: normalizeBudget(saved.budget || fallbackBudget),
       currentBudgetId: saved.currentBudgetId || null,
-      savedBudgets: saved.savedBudgets || []
+      savedBudgets: (saved.savedBudgets || []).map(normalizeSavedBudget)
     };
   } catch {
     return {
       dataVersion: DATA_VERSION,
       hiddenServiceCodes: [],
       services: baseServices,
-      budget: fallbackBudget,
+      budget: normalizeBudget(fallbackBudget),
       currentBudgetId: null,
       savedBudgets: []
     };
   }
+}
+
+function normalizeBudget(budget) {
+  return {
+    client: budget?.client || "",
+    project: budget?.project || "",
+    city: budget?.city || "",
+    bdi: budget?.bdi ?? 20,
+    dataSource: BUDGET_BASE_OPTIONS[budget?.dataSource] ? budget.dataSource : "sinapi",
+    costScope: BUDGET_SCOPE_OPTIONS[budget?.costScope] ? budget.costScope : "labor_material",
+    items: cloneBudgetItems(budget?.items || [])
+  };
+}
+
+function normalizeSavedBudget(budget) {
+  return {
+    id: budget?.id || crypto.randomUUID(),
+    ...normalizeBudget(budget),
+    createdAt: budget?.createdAt || new Date().toISOString(),
+    updatedAt: budget?.updatedAt || new Date().toISOString()
+  };
 }
 
 function saveState() {
@@ -303,6 +340,8 @@ function hydrateForm() {
   els.projectName.value = state.budget.project;
   els.cityName.value = state.budget.city;
   els.bdiInput.value = state.budget.bdi;
+  if (els.budgetDataSource) els.budgetDataSource.value = state.budget.dataSource || "sinapi";
+  if (els.budgetCostScope) els.budgetCostScope.value = state.budget.costScope || "labor_material";
 }
 
 function updateBudgetMeta() {
@@ -312,6 +351,18 @@ function updateBudgetMeta() {
   state.budget.bdi = toNumber(els.bdiInput.value);
   saveState();
   renderSummary();
+}
+
+function updateBudgetOptions() {
+  state.budget.dataSource = els.budgetDataSource?.value || "sinapi";
+  state.budget.costScope = els.budgetCostScope?.value || "labor_material";
+  clearSelectedService();
+  saveState();
+  renderServices();
+  renderBudgetHistory();
+  if (projectEstimates.length) {
+    calculateProjectTakeoff();
+  }
 }
 
 function render() {
@@ -394,7 +445,7 @@ function renderBudgetHistory() {
       <div>
         <strong>${escapeHtml(getBudgetTitle(budget))}</strong>
         <p>${escapeHtml(budget.client || "Cliente nao informado")} | ${escapeHtml(budget.city || "Cidade nao informada")}</p>
-        <span>${budget.items.length} item(ns) | ${formatMoney(getBudgetFinalCost(budget))} | Atualizado em ${formatDateTime(budget.updatedAt)}</span>
+        <span>${budget.items.length} item(ns) | ${getBudgetBaseLabel(budget)} | ${getBudgetScopeLabel(budget)} | ${formatMoney(getBudgetFinalCost(budget))} | Atualizado em ${formatDateTime(budget.updatedAt)}</span>
       </div>
       <div class="history-actions">
         <button class="ghost" type="button" data-action="open" data-id="${budget.id}" onclick="openSavedBudget('${budget.id}')">Abrir/editar</button>
@@ -452,6 +503,8 @@ function saveCurrentBudgetToHistory() {
     project: state.budget.project,
     city: state.budget.city,
     bdi: state.budget.bdi,
+    dataSource: state.budget.dataSource || "sinapi",
+    costScope: state.budget.costScope || "labor_material",
     items: cloneBudgetItems(state.budget.items),
     createdAt: existing?.createdAt || now,
     updatedAt: now
@@ -567,6 +620,8 @@ function importBudgetDatabase(event) {
           project: budget.project || "",
           city: budget.city || "",
           bdi: budget.bdi ?? 20,
+          dataSource: BUDGET_BASE_OPTIONS[budget.dataSource] ? budget.dataSource : "sinapi",
+          costScope: BUDGET_SCOPE_OPTIONS[budget.costScope] ? budget.costScope : "labor_material",
           items: cloneBudgetItems(budget.items, false),
           createdAt: budget.createdAt || new Date().toISOString(),
           updatedAt: budget.updatedAt || new Date().toISOString()
@@ -598,12 +653,15 @@ function mergeBudgets(existing, incoming) {
 
 function renderServices() {
   const term = els.searchInput.value.trim().toLowerCase();
-  const services = state.services
+  const services = getActiveServices()
     .filter((service) => `${service.code} ${service.description}`.toLowerCase().includes(term))
     .sort(sortServices);
   const visibleServices = services.slice(0, SERVICE_LIST_LIMIT);
 
   els.serviceList.innerHTML = "";
+  if (els.serviceBaseEyebrow) {
+    els.serviceBaseEyebrow.textContent = `${getCurrentBaseLabel()} | ${getCurrentScopeLabel()}`;
+  }
 
   visibleServices.forEach((service) => {
     const card = els.serviceCardTemplate.content.cloneNode(true);
@@ -631,7 +689,7 @@ function updateBudgetSuggestions() {
     activeSuggestionIndex = -1;
     els.budgetSuggestions.innerHTML = "";
     els.budgetSuggestions.classList.remove("is-open");
-    els.selectedServicePreview.textContent = "Digite para ver sugestoes da base SINAPI.";
+    els.selectedServicePreview.textContent = `Digite para ver sugestoes da base ${getCurrentBaseLabel()}.`;
     return;
   }
 
@@ -644,7 +702,7 @@ function findServiceSuggestions(term) {
   const normalizedTerm = normalizeSearchText(term);
   const words = normalizedTerm.split(" ").filter(Boolean);
 
-  return state.services
+  return getActiveServices()
     .map((service) => ({
       service,
       score: scoreServiceSuggestion(service, normalizedTerm, words)
@@ -743,7 +801,7 @@ function clearSelectedService() {
   els.budgetServiceSearch.value = "";
   els.budgetSuggestions.innerHTML = "";
   els.budgetSuggestions.classList.remove("is-open");
-  els.selectedServicePreview.textContent = "Digite para ver sugestoes da base SINAPI.";
+  els.selectedServicePreview.textContent = `Digite para ver sugestoes da base ${getCurrentBaseLabel()}.`;
 }
 
 function closeSuggestionsOnOutsideClick(event) {
@@ -899,7 +957,7 @@ function analyzeProjectText() {
       quantity,
       unit: getPreferredEstimateUnit(rule),
       service,
-      confidence: service ? "SINAPI encontrado" : "Sem item SINAPI automatico"
+      confidence: service ? `${getCurrentBaseLabel()} encontrado` : `Sem item ${getCurrentBaseLabel()} automatico`
     };
   }).filter(Boolean);
 
@@ -1019,7 +1077,7 @@ function buildStructuralEstimates(items) {
       service,
       confidence: service
         ? `Extraido do resumo estrutural (${sources})`
-        : `Extraido do resumo estrutural, sem SINAPI automatico (${sources})`
+        : `Extraido do resumo estrutural, sem item ${getCurrentBaseLabel()} automatico (${sources})`
     };
   }).filter((item) => item.quantity > 0);
 }
@@ -1529,7 +1587,7 @@ function addTakeoffEstimate(estimates, ruleKey, label, quantity, unit, note) {
     quantity: rounded,
     unit,
     service,
-    confidence: service ? `Calculado pelo levantamento: ${note}` : `Calculado, mas sem SINAPI automatico: ${note}`
+    confidence: service ? `Calculado pelo levantamento: ${note}` : `Calculado, mas sem item ${getCurrentBaseLabel()} automatico: ${note}`
   });
 }
 
@@ -1702,8 +1760,8 @@ function maxQuantityFromMatches(text, regex) {
 
 function findBestServiceForRule(rule) {
   const preferredUnit = getPreferredEstimateUnit(rule);
-  const candidates = state.services
-    .filter((service) => service.type === "COMPOSICAO" || service.source === SINAPI_SOURCE || service.type === "EXEMPLO")
+  const candidates = getActiveServices({ includeCustom: false })
+    .filter((service) => service.type === "COMPOSICAO" || service.type === "COMPOSICAO_CDHU" || service.source === SINAPI_SOURCE || service.source === CDHU_SOURCE || service.type === "EXEMPLO")
     .map((service) => ({ service, score: scoreServiceForRule(service, rule, preferredUnit) }))
     .filter((item) => item.score > 0)
     .sort((a, b) => b.score - a.score || a.service.code.localeCompare(b.service.code));
@@ -1764,7 +1822,7 @@ function renderProjectEstimates() {
   els.projectEstimates.innerHTML = projectEstimates.map((estimate) => {
     const serviceText = estimate.service
       ? `${escapeHtml(estimate.service.code)} - ${escapeHtml(estimate.service.description)}`
-      : "Nenhum item SINAPI encontrado automaticamente";
+      : `Nenhum item ${getCurrentBaseLabel()} encontrado automaticamente`;
 
     return `
       <article class="estimate-card">
@@ -1808,7 +1866,7 @@ function addSelectedProjectEstimatesToBudget({ scrollToBudget }) {
   });
 
   if (!selected.length) {
-    alert("Nenhuma sugestao com item SINAPI foi selecionada.");
+    alert(`Nenhuma sugestao com item da base ${getCurrentBaseLabel()} foi selecionada.`);
     return 0;
   }
 
@@ -1824,6 +1882,8 @@ function addSelectedProjectEstimatesToBudget({ scrollToBudget }) {
       unit: estimate.service.unit,
       price: estimate.service.price,
       type: estimate.service.type,
+      source: estimate.service.source,
+      costScope: state.budget.costScope || "labor_material",
       quantity
     });
   });
@@ -1848,11 +1908,11 @@ function setProjectStatus(message) {
 
 function addBudgetItem() {
   const typedService = currentSuggestions[0];
-  const service = state.services.find((item) => item.code === els.selectedServiceCode.value) || typedService;
+  const service = getActiveServices().find((item) => item.code === els.selectedServiceCode.value) || typedService;
   const quantity = toNumber(els.quantityInput.value);
 
   if (!service || quantity <= 0) {
-    alert("Digite e selecione um item da base SINAPI, depois informe uma quantidade maior que zero.");
+    alert(`Digite e selecione um item da base ${getCurrentBaseLabel()}, depois informe uma quantidade maior que zero.`);
     return;
   }
 
@@ -1863,6 +1923,8 @@ function addBudgetItem() {
     unit: service.unit,
     price: service.price,
     type: service.type,
+    source: service.source,
+    costScope: state.budget.costScope || "labor_material",
     quantity
   });
 
@@ -1902,7 +1964,7 @@ function removeService(code) {
     return;
   }
 
-  if (service?.source === SINAPI_SOURCE) {
+  if (service?.source === SINAPI_SOURCE || service?.source === CDHU_SOURCE || service?.source === "EXEMPLO") {
     state.hiddenServiceCodes = Array.from(new Set([...(state.hiddenServiceCodes || []), code]));
   }
 
@@ -1941,11 +2003,15 @@ function resetBudget() {
 }
 
 function resetBudgetDraft() {
+  const currentDataSource = state.budget?.dataSource || "sinapi";
+  const currentCostScope = state.budget?.costScope || "labor_material";
   state.budget = {
     client: "",
     project: "",
     city: "",
     bdi: 20,
+    dataSource: currentDataSource,
+    costScope: currentCostScope,
     items: []
   };
   state.currentBudgetId = null;
@@ -2083,21 +2149,90 @@ function mergeServices(existing, incoming) {
 
 function getBaseServices() {
   const sinapiServices = window.SINAPI_DATA?.services;
-  return Array.isArray(sinapiServices) && sinapiServices.length ? sinapiServices : sampleServices;
+  const cdhuServices = window.CDHU_DATA?.services;
+  const baseServices = [
+    ...(Array.isArray(sinapiServices) && sinapiServices.length ? sinapiServices : sampleServices),
+    ...(Array.isArray(cdhuServices) && cdhuServices.length ? cdhuServices : [])
+  ];
+  return baseServices;
 }
 
 function isSavedCustomService(service) {
-  return service.source !== SINAPI_SOURCE && service.source !== "EXEMPLO" && !String(service.code || "").startsWith("SINAPI-");
+  return service.source !== SINAPI_SOURCE
+    && service.source !== CDHU_SOURCE
+    && service.source !== "EXEMPLO"
+    && !String(service.code || "").startsWith("SINAPI-")
+    && !String(service.code || "").startsWith("CDHU-");
+}
+
+function getActiveServices({ includeCustom = true } = {}) {
+  const activeSource = BUDGET_BASE_OPTIONS[state.budget?.dataSource]?.source || SINAPI_SOURCE;
+  const scope = state.budget?.costScope || "labor_material";
+  const baseServices = state.services.filter((service) => {
+    const isCurrentBase = service.source === activeSource || (activeSource === SINAPI_SOURCE && service.source === "EXEMPLO");
+    const isCustom = isSavedCustomService(service);
+    if (!isCurrentBase && !(includeCustom && isCustom)) return false;
+    if (scope === "labor_only" && !isLaborService(service) && !isCustom) return false;
+    return true;
+  });
+
+  if (scope === "labor_only" && !baseServices.some((service) => !isSavedCustomService(service))) {
+    return state.services.filter((service) => {
+      const isCurrentBase = service.source === activeSource || (activeSource === SINAPI_SOURCE && service.source === "EXEMPLO");
+      return isCurrentBase || (includeCustom && isSavedCustomService(service));
+    });
+  }
+
+  return baseServices;
+}
+
+function isLaborService(service) {
+  const text = normalizeSearchText(`${service.description} ${service.type || ""}`);
+  return [
+    "mao de obra",
+    "pedreiro",
+    "servente",
+    "carpinteiro",
+    "armador",
+    "pintor",
+    "encanador",
+    "eletricista",
+    "azulejista",
+    "gesseiro",
+    "ajudante",
+    "operador",
+    "montador",
+    "assentador",
+    "aplicador",
+    "instalador"
+  ].some((term) => text.includes(term));
+}
+
+function getCurrentBaseLabel() {
+  return BUDGET_BASE_OPTIONS[state.budget?.dataSource]?.label || BUDGET_BASE_OPTIONS.sinapi.label;
+}
+
+function getCurrentScopeLabel() {
+  return BUDGET_SCOPE_OPTIONS[state.budget?.costScope] || BUDGET_SCOPE_OPTIONS.labor_material;
+}
+
+function getBudgetBaseLabel(budget) {
+  return BUDGET_BASE_OPTIONS[budget?.dataSource]?.label || BUDGET_BASE_OPTIONS.sinapi.label;
+}
+
+function getBudgetScopeLabel(budget) {
+  return BUDGET_SCOPE_OPTIONS[budget?.costScope] || BUDGET_SCOPE_OPTIONS.labor_material;
 }
 
 function sortServices(a, b) {
-  const typeOrder = { COMPOSICAO: 0, INSUMO: 1, CUSTOM: 2, EXEMPLO: 3 };
+  const typeOrder = { COMPOSICAO: 0, COMPOSICAO_CDHU: 0, INSUMO: 1, CUSTOM: 2, EXEMPLO: 3 };
   return (typeOrder[a.type] ?? 9) - (typeOrder[b.type] ?? 9) || a.code.localeCompare(b.code);
 }
 
 function getTypeLabel(service) {
   const labels = {
     COMPOSICAO: "Composicao SINAPI",
+    COMPOSICAO_CDHU: "Composicao CDHU",
     INSUMO: "Insumo SINAPI",
     CUSTOM: "Cadastro manual",
     EXEMPLO: "Exemplo"
@@ -2174,6 +2309,8 @@ function budgetFromSaved(savedBudget) {
     project: savedBudget.project || "",
     city: savedBudget.city || "",
     bdi: savedBudget.bdi ?? 20,
+    dataSource: BUDGET_BASE_OPTIONS[savedBudget.dataSource] ? savedBudget.dataSource : "sinapi",
+    costScope: BUDGET_SCOPE_OPTIONS[savedBudget.costScope] ? savedBudget.costScope : "labor_material",
     items: cloneBudgetItems(savedBudget.items || [])
   };
 }
@@ -2196,6 +2333,8 @@ function exportBudgetCsv() {
     ["Obra", state.budget.project],
     ["Municipio", state.budget.city],
     ["BDI (%)", state.budget.bdi],
+    ["Base de dados", getCurrentBaseLabel()],
+    ["Tipo de orcamento", getCurrentScopeLabel()],
     [],
     ["Codigo", "Descricao", "Unidade", "Quantidade", "Preco unitario", "Total"],
     ...state.budget.items.map((item) => [
@@ -2286,6 +2425,8 @@ function buildPrintContent() {
           <div><strong>Obra</strong><br>${escapeHtml(state.budget.project || "-")}</div>
           <div><strong>Municipio</strong><br>${escapeHtml(state.budget.city || "-")}</div>
           <div><strong>BDI</strong><br>${formatNumber(state.budget.bdi)}%</div>
+          <div><strong>Base</strong><br>${escapeHtml(getCurrentBaseLabel())}</div>
+          <div><strong>Tipo</strong><br>${escapeHtml(getCurrentScopeLabel())}</div>
         </section>
 
         <table>
