@@ -20,6 +20,43 @@ const PROJECT_READER_RULES = [
   { key: "janela", label: "Janelas", units: ["un"], terms: ["janela", "janelas", "esquadria"] },
   { key: "forro", label: "Forro", units: ["m2"], terms: ["forro", "gesso", "drywall"] }
 ];
+const MASONRY_TYPE_OPTIONS = [
+  {
+    value: "ceramico_9",
+    label: "Bloco ceramico vedacao 9 cm",
+    terms: ["alvenaria", "bloco ceramico", "tijolo ceramico", "vedacao", "9x19", "9 x 19", "furado"]
+  },
+  {
+    value: "ceramico_11_5",
+    label: "Bloco ceramico vedacao 11,5 cm",
+    terms: ["alvenaria", "bloco ceramico", "tijolo ceramico", "vedacao", "11,5", "11.5", "furado"]
+  },
+  {
+    value: "ceramico_14",
+    label: "Bloco ceramico vedacao 14 cm",
+    terms: ["alvenaria", "bloco ceramico", "tijolo ceramico", "vedacao", "14x19", "14 x 19", "furado"]
+  },
+  {
+    value: "concreto_9",
+    label: "Bloco de concreto vedacao 9 cm",
+    terms: ["alvenaria", "bloco concreto", "bloco de concreto", "vedacao", "9x19", "9 x 19"]
+  },
+  {
+    value: "concreto_14",
+    label: "Bloco de concreto vedacao 14 cm",
+    terms: ["alvenaria", "bloco concreto", "bloco de concreto", "vedacao", "14x19", "14 x 19"]
+  },
+  {
+    value: "estrutural_concreto",
+    label: "Alvenaria estrutural bloco de concreto",
+    terms: ["alvenaria estrutural", "bloco concreto estrutural", "bloco de concreto estrutural", "estrutural"]
+  },
+  {
+    value: "generica",
+    label: "Generica / melhor item SINAPI encontrado",
+    terms: ["alvenaria", "parede", "vedacao"]
+  }
+];
 
 const sampleServices = [
   {
@@ -127,6 +164,7 @@ const els = {
   upperWallHeight: document.querySelector("#upperWallHeight"),
   openingArea: document.querySelector("#openingArea"),
   masonryOpeningRule: document.querySelector("#masonryOpeningRule"),
+  masonryType: document.querySelector("#masonryType"),
   doorCount: document.querySelector("#doorCount"),
   doorSize: document.querySelector("#doorSize"),
   windowCount: document.querySelector("#windowCount"),
@@ -191,6 +229,11 @@ els.analyzeProjectBtn.addEventListener("click", analyzeProjectText);
 els.generateBudgetFromTakeoffBtn.addEventListener("click", generateBudgetFromTakeoff);
 els.addProjectItemsBtn.addEventListener("click", addProjectEstimatesToBudget);
 els.applyCotasBtn.addEventListener("click", applyExtractedCotas);
+els.masonryType?.addEventListener("change", () => {
+  if (projectEstimates.length) {
+    calculateProjectTakeoff();
+  }
+});
 document.addEventListener("click", closeSuggestionsOnOutsideClick);
 
 function loadState() {
@@ -1154,6 +1197,7 @@ function findSimplePlanData(text) {
 function buildSimplePlanEstimates(text) {
   const suggestion = buildTakeoffFromMeasurements([], text);
   const values = suggestion.values || {};
+  const masonryType = getSelectedMasonryType();
   const floorArea = toNumber(values.floorArea);
   const wallHeight = toNumber(values.wallHeight) || 2.8;
   const wallLinear = toNumber(values.externalWallLength) + toNumber(values.internalWallLength);
@@ -1162,7 +1206,7 @@ function buildSimplePlanEstimates(text) {
   const openingArea = toNumber(values.openingArea);
   const finishNetWallArea = Math.max(wallLinear * wallHeight - openingArea, 0);
   const estimates = [];
-  addTakeoffEstimate(estimates, "alvenaria", "Alvenaria estimada pelo projeto simplificado", finishNetWallArea, "m2", "Area dos ambientes convertida em metro linear estimado de paredes");
+  addTakeoffEstimate(estimates, "alvenaria", `Alvenaria estimada - ${masonryType.label}`, finishNetWallArea, "m2", `Tipo: ${masonryType.label}. Area dos ambientes convertida em metro linear estimado de paredes`);
   addTakeoffEstimate(estimates, "chapisco", "Chapisco estimado pelo projeto simplificado", finishNetWallArea * 2, "m2", "Duas faces sobre area estimada de paredes");
   addTakeoffEstimate(estimates, "reboco", "Emboco / reboco estimado pelo projeto simplificado", finishNetWallArea * 2, "m2", "Duas faces sobre area estimada de paredes");
   addTakeoffEstimate(estimates, "pintura", "Pintura estimada pelo projeto simplificado", finishNetWallArea * 2, "m2", "Duas faces sobre area estimada de paredes");
@@ -1364,11 +1408,12 @@ function calculateProjectTakeoff() {
   const totalFloorArea = floorArea + upperFloorArea;
   const floorAreaWithWaste = totalFloorArea * wasteMultiplier;
   const roofAreaWithWaste = roofArea * wasteMultiplier;
+  const masonryType = getSelectedMasonryType();
 
   const estimates = [];
   addTakeoffEstimate(estimates, "baldrame_escavacao", "Escavacao de baldrame", baldrameVolume, "m3", "Comprimento x largura x altura do baldrame");
   addTakeoffEstimate(estimates, "baldrame_concreto", "Concreto de baldrame", baldrameVolume, "m3", "Comprimento x largura x altura do baldrame");
-  addTakeoffEstimate(estimates, "alvenaria", "Alvenaria", masonryArea, "m2", "Metro linear de paredes x pe-direito com criterio de desconto de vaos");
+  addTakeoffEstimate(estimates, "alvenaria", `Alvenaria - ${masonryType.label}`, masonryArea, "m2", `Tipo: ${masonryType.label}. Metro linear de paredes x pe-direito com criterio de desconto de vaos`);
   addTakeoffEstimate(estimates, "chapisco", "Chapisco", chapiscoArea, "m2", `${chapiscoFaces} face(s) sobre alvenaria liquida`);
   addTakeoffEstimate(estimates, "reboco", "Emboco / reboco", rebocoArea, "m2", `${rebocoFaces} face(s) sobre alvenaria liquida`);
   addTakeoffEstimate(estimates, "pintura", "Acabamento / pintura", finishArea, "m2", `${finishFaces} face(s) sobre alvenaria liquida`);
@@ -1432,6 +1477,11 @@ function addTakeoffEstimate(estimates, ruleKey, label, quantity, unit, note) {
   });
 }
 
+function getSelectedMasonryType() {
+  const selected = els.masonryType?.value || "ceramico_9";
+  return MASONRY_TYPE_OPTIONS.find((item) => item.value === selected) || MASONRY_TYPE_OPTIONS[0];
+}
+
 function getTakeoffTerms(ruleKey) {
   const rule = PROJECT_READER_RULES.find((item) => item.key === ruleKey);
   const terms = {
@@ -1443,6 +1493,10 @@ function getTakeoffTerms(ruleKey) {
     estrutura_forma: ["forma", "formas", "forma estrutura", "forma para concreto"],
     estrutura_aco: ["aco", "armadura", "vergalhao", "corte dobra", "ca-50", "ca-60"]
   };
+  if (ruleKey === "alvenaria") {
+    const masonryType = getSelectedMasonryType();
+    return Array.from(new Set([...masonryType.terms, ...(rule?.terms || [])]));
+  }
   return terms[ruleKey] || rule?.terms || [ruleKey];
 }
 
@@ -1562,6 +1616,20 @@ function scoreServiceForRule(service, rule, preferredUnit) {
   rule.terms.forEach((term) => {
     if (description.includes(normalizeSearchText(term))) score += 8;
   });
+
+  if (rule.key === "alvenaria") {
+    const masonryType = getSelectedMasonryType();
+    masonryType.terms.forEach((term) => {
+      if (description.includes(normalizeSearchText(term))) score += 14;
+    });
+    const wantsConcrete = masonryType.value.includes("concreto");
+    const wantsCeramic = masonryType.value.includes("ceramico");
+    if (wantsConcrete && description.includes("concreto")) score += 12;
+    if (wantsCeramic && (description.includes("ceramico") || description.includes("tijolo"))) score += 12;
+    if (masonryType.value.includes("estrutural") && description.includes("estrutural")) score += 16;
+    if (wantsConcrete && (description.includes("ceramico") || description.includes("tijolo"))) score -= 18;
+    if (wantsCeramic && description.includes("concreto")) score -= 18;
+  }
 
   if (unit === preferredUnit) score += 5;
   if (service.type === "COMPOSICAO") score += 3;
