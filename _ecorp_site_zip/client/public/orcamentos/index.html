@@ -83,8 +83,8 @@
               <h2 id="projectReaderTitle">Anexar PDF e gerar itens</h2>
             </div>
             <label class="file-button">
-              Anexar PDFs
-              <input id="projectPdfInput" accept=".pdf,application/pdf" multiple type="file" />
+              Anexar PDF/DWG
+              <input id="projectPdfInput" accept=".pdf,.dwg,application/pdf,application/acad,application/x-acad,application/autocad_dwg,image/vnd.dwg" multiple type="file" />
             </label>
           </div>
           <p class="hint">
@@ -234,8 +234,9 @@
               <button class="ghost" id="analyzeProjectBtn" type="button">Analisar texto</button>
               <button class="primary strong-action" id="generateBudgetFromTakeoffBtn" type="button">Gerar orcamento automatico</button>
               <button class="ghost" id="addProjectItemsBtn" type="button">Adicionar sugestoes selecionadas</button>
-              <p class="selected-service" id="projectReaderStatus">Nenhum PDF analisado ainda.</p>
-            </div>
+            <p class="selected-service" id="projectReaderStatus">Nenhum PDF ou DWG anexado ainda.</p>
+            <div class="selected-service" id="projectAttachmentList"></div>
+          </div>
           </div>
           <div class="project-estimates" id="projectEstimates"></div>
         </section>

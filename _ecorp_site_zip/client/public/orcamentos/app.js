@@ -184,6 +184,7 @@ const els = {
   generateBudgetFromTakeoffBtn: document.querySelector("#generateBudgetFromTakeoffBtn"),
   addProjectItemsBtn: document.querySelector("#addProjectItemsBtn"),
   projectReaderStatus: document.querySelector("#projectReaderStatus"),
+  projectAttachmentList: document.querySelector("#projectAttachmentList"),
   takeoffSummary: document.querySelector("#takeoffSummary"),
   cotaPanel: document.querySelector("#cotaPanel"),
   cotaSummary: document.querySelector("#cotaSummary"),
@@ -749,11 +750,51 @@ function closeSuggestionsOnOutsideClick(event) {
   }
 }
 
+function isPdfFile(file) {
+  return file?.type === "application/pdf" || /\.pdf$/i.test(file?.name || "");
+}
+
+function isDwgFile(file) {
+  return /\.dwg$/i.test(file?.name || "") || /dwg|acad|autocad/i.test(file?.type || "");
+}
+
+function renderProjectAttachments({ pdfFiles = [], dwgFiles = [], unsupportedFiles = [] }) {
+  if (!els.projectAttachmentList) return;
+  const rows = [
+    ...pdfFiles.map((file) => ({ type: "PDF", name: file.name, note: "sera lido automaticamente" })),
+    ...dwgFiles.map((file) => ({ type: "DWG", name: file.name, note: "anexado para referencia do projeto" })),
+    ...unsupportedFiles.map((file) => ({ type: "Ignorado", name: file.name, note: "formato nao suportado" }))
+  ];
+
+  if (!rows.length) {
+    els.projectAttachmentList.innerHTML = "";
+    return;
+  }
+
+  els.projectAttachmentList.innerHTML = `
+    <strong>Arquivos anexados</strong>
+    <ul>
+      ${rows.map((item) => `<li><b>${escapeHtml(item.type)}</b> - ${escapeHtml(item.name)} <span class="muted">(${escapeHtml(item.note)})</span></li>`).join("")}
+    </ul>`;
+}
+
 async function readProjectPdf(event) {
   const files = Array.from(event.target.files || []);
   if (!files.length) return;
+  const pdfFiles = files.filter(isPdfFile);
+  const dwgFiles = files.filter(isDwgFile);
+  const unsupportedFiles = files.filter((file) => !isPdfFile(file) && !isDwgFile(file));
 
-  setProjectStatus(`Lendo ${files.length} prancha(s)...`);
+  renderProjectAttachments({ pdfFiles, dwgFiles, unsupportedFiles });
+
+  if (!pdfFiles.length) {
+    const dwgText = dwgFiles.length ? `${dwgFiles.length} arquivo(s) DWG anexado(s). ` : "";
+    const unsupportedText = unsupportedFiles.length ? `${unsupportedFiles.length} arquivo(s) ignorado(s). ` : "";
+    setProjectStatus(`${dwgText}${unsupportedText}DWG foi anexado para referencia; a leitura automatica de quantitativos continua pelos PDFs ou pelo preenchimento manual.`);
+    return;
+  }
+
+  setProjectStatus(`Lendo ${pdfFiles.length} PDF(s). ${dwgFiles.length ? `${dwgFiles.length} DWG(s) anexado(s) para referencia.` : ""}`);
 
   if (!window.pdfjsLib) {
     setProjectStatus("Nao foi possivel carregar o leitor de PDF. Verifique a internet ou cole o texto do projeto manualmente.");
@@ -767,7 +808,7 @@ async function readProjectPdf(event) {
     const structuralFound = [];
     let pageCount = 0;
 
-    for (const file of files) {
+    for (const file of pdfFiles) {
       const buffer = await file.arrayBuffer();
       const pdf = await window.pdfjsLib.getDocument({ data: buffer }).promise;
       pageCount += pdf.numPages;
@@ -817,13 +858,13 @@ async function readProjectPdf(event) {
     if (extractedCotaSuggestion?.confidence !== "baixa") {
       applyExtractedCotas(false);
       calculateProjectTakeoff();
-      setProjectStatus(`Cotas extraidas de ${files.length} arquivo(s). Estrutura: ${structuralEstimates.length} sugestao(oes) para concreto, formas e ferragem.`);
+      setProjectStatus(`Cotas extraidas de ${pdfFiles.length} PDF(s). ${dwgFiles.length ? `${dwgFiles.length} DWG(s) anexado(s). ` : ""}Estrutura: ${structuralEstimates.length} sugestao(oes) para concreto, formas e ferragem.`);
     } else {
       if (structuralEstimates.length) {
         projectEstimates = mergeProjectEstimates([...projectEstimates, ...structuralEstimates]);
         renderProjectEstimates();
       }
-      setProjectStatus(`Texto extraido de ${files.length} arquivo(s), ${pageCount} pagina(s). Estrutura: ${structuralEstimates.length} sugestao(oes). Confira ou clique em Analisar texto.`);
+      setProjectStatus(`Texto extraido de ${pdfFiles.length} PDF(s), ${pageCount} pagina(s). ${dwgFiles.length ? `${dwgFiles.length} DWG(s) anexado(s). ` : ""}Estrutura: ${structuralEstimates.length} sugestao(oes). Confira ou clique em Analisar texto.`);
     }
   } catch (error) {
     console.error(error);
@@ -1886,6 +1927,7 @@ function clearProjectReaderFields() {
   if (els.finishFaces) els.finishFaces.value = "2";
   if (els.wastePercent) els.wastePercent.value = "5";
   if (els.takeoffSummary) els.takeoffSummary.innerHTML = "";
+  if (els.projectAttachmentList) els.projectAttachmentList.innerHTML = "";
   if (els.projectEstimates) els.projectEstimates.innerHTML = "";
   if (els.cotaPanel) els.cotaPanel.hidden = true;
   if (els.cotaSummary) els.cotaSummary.textContent = "";
