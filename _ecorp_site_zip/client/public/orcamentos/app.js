@@ -172,9 +172,11 @@ const els = {
   chapiscoFaces: document.querySelector("#chapiscoFaces"),
   rebocoFaces: document.querySelector("#rebocoFaces"),
   finishFaces: document.querySelector("#finishFaces"),
+  foundationType: document.querySelector("#foundationType"),
   baldrameLength: document.querySelector("#baldrameLength"),
   baldrameWidth: document.querySelector("#baldrameWidth"),
   baldrameHeight: document.querySelector("#baldrameHeight"),
+  radierThickness: document.querySelector("#radierThickness"),
   floorArea: document.querySelector("#floorArea"),
   upperFloorArea: document.querySelector("#upperFloorArea"),
   roofArea: document.querySelector("#roofArea"),
@@ -1426,9 +1428,11 @@ function calculateProjectTakeoff() {
   const chapiscoFaces = toNumber(els.chapiscoFaces.value);
   const rebocoFaces = toNumber(els.rebocoFaces.value);
   const finishFaces = toNumber(els.finishFaces.value);
+  const foundationType = els.foundationType?.value || "baldrame";
   const baldrameLength = toNumber(els.baldrameLength.value);
   const baldrameWidth = toNumber(els.baldrameWidth.value);
   const baldrameHeight = toNumber(els.baldrameHeight.value);
+  const radierThickness = toNumber(els.radierThickness?.value || 0.12);
   const floorArea = toNumber(els.floorArea.value);
   const upperFloorArea = toNumber(els.upperFloorArea.value);
   const roofArea = toNumber(els.roofArea.value);
@@ -1442,6 +1446,8 @@ function calculateProjectTakeoff() {
   const masonryNetWallArea = Math.max(grossWallArea - masonryOpeningDiscount, 0);
   const finishNetWallArea = Math.max(grossWallArea - finishOpeningDiscount, 0);
   const baldrameVolume = baldrameLength * baldrameWidth * baldrameHeight;
+  const radierVolume = floorArea * radierThickness;
+  const foundationVolume = foundationType === "radier" ? radierVolume : foundationType === "none" ? 0 : baldrameVolume;
   const masonryArea = masonryNetWallArea * wasteMultiplier;
   const chapiscoArea = finishNetWallArea * chapiscoFaces * wasteMultiplier;
   const rebocoArea = finishNetWallArea * rebocoFaces * wasteMultiplier;
@@ -1452,8 +1458,13 @@ function calculateProjectTakeoff() {
   const masonryType = getSelectedMasonryType();
 
   const estimates = [];
-  addTakeoffEstimate(estimates, "baldrame_escavacao", "Escavacao de baldrame", baldrameVolume, "m3", "Comprimento x largura x altura do baldrame");
-  addTakeoffEstimate(estimates, "baldrame_concreto", "Concreto de baldrame", baldrameVolume, "m3", "Comprimento x largura x altura do baldrame");
+  addFoundationEstimates(estimates, {
+    foundationType,
+    baldrameVolume,
+    radierVolume,
+    floorArea,
+    radierThickness
+  });
   addTakeoffEstimate(estimates, "alvenaria", `Alvenaria - ${masonryType.label}`, masonryArea, "m2", `Tipo: ${masonryType.label}. Metro linear de paredes x pe-direito com criterio de desconto de vaos`);
   addTakeoffEstimate(estimates, "chapisco", "Chapisco", chapiscoArea, "m2", `${chapiscoFaces} face(s) sobre alvenaria liquida`);
   addTakeoffEstimate(estimates, "reboco", "Emboco / reboco", rebocoArea, "m2", `${rebocoFaces} face(s) sobre alvenaria liquida`);
@@ -1477,6 +1488,10 @@ function calculateProjectTakeoff() {
     finishOpeningDiscount,
     masonryNetWallArea,
     finishNetWallArea,
+    foundationType,
+    radierThickness,
+    radierVolume,
+    foundationVolume,
     baldrameVolume,
     chapiscoArea,
     rebocoArea,
@@ -1489,7 +1504,7 @@ function calculateProjectTakeoff() {
   });
 
   if (!projectEstimates.length) {
-    setProjectStatus("Informe pelo menos metro linear, pe-direito, baldrame, piso ou cobertura para calcular.");
+    setProjectStatus("Informe pelo menos metro linear, pe-direito, fundacao, piso ou cobertura para calcular.");
     return;
   }
 
@@ -1518,6 +1533,40 @@ function addTakeoffEstimate(estimates, ruleKey, label, quantity, unit, note) {
   });
 }
 
+function addFoundationEstimates(estimates, values) {
+  const { foundationType, baldrameVolume, radierVolume, floorArea, radierThickness } = values;
+  if (foundationType === "none") return;
+
+  if (foundationType === "radier") {
+    addTakeoffEstimate(
+      estimates,
+      "fundacao_radier_concreto",
+      "Concreto para radier",
+      radierVolume,
+      "m3",
+      `Area terrea ${formatNumber(floorArea)} m2 x espessura ${formatNumber(radierThickness)} m`
+    );
+    addTakeoffEstimate(
+      estimates,
+      "fundacao_radier_preparo",
+      "Preparo / execucao de radier",
+      floorArea,
+      "m2",
+      "Area terrea usada como base do radier"
+    );
+    return;
+  }
+
+  if (foundationType === "sapata_corrida") {
+    addTakeoffEstimate(estimates, "baldrame_escavacao", "Escavacao de sapata corrida", baldrameVolume, "m3", "Comprimento x largura x altura da sapata corrida");
+    addTakeoffEstimate(estimates, "fundacao_sapata_concreto", "Concreto de sapata corrida", baldrameVolume, "m3", "Comprimento x largura x altura da sapata corrida");
+    return;
+  }
+
+  addTakeoffEstimate(estimates, "baldrame_escavacao", "Escavacao de baldrame", baldrameVolume, "m3", "Comprimento x largura x altura do baldrame");
+  addTakeoffEstimate(estimates, "baldrame_concreto", "Concreto de baldrame", baldrameVolume, "m3", "Comprimento x largura x altura do baldrame");
+}
+
 function getSelectedMasonryType() {
   const selected = els.masonryType?.value || "ceramico_9";
   return MASONRY_TYPE_OPTIONS.find((item) => item.value === selected) || MASONRY_TYPE_OPTIONS[0];
@@ -1530,6 +1579,9 @@ function getTakeoffTerms(ruleKey) {
     pintura: ["pintura", "latex", "acrilica"],
     baldrame_escavacao: ["escavacao", "baldrame", "sapata corrida"],
     baldrame_concreto: ["concreto", "concretagem", "viga baldrame"],
+    fundacao_radier_concreto: ["radier", "concreto", "laje de fundacao", "fundacao radier"],
+    fundacao_radier_preparo: ["radier", "preparo", "fundacao", "laje de fundacao"],
+    fundacao_sapata_concreto: ["concreto", "sapata corrida", "fundacao", "concretagem"],
     estrutura_concreto: ["concreto", "concretagem", "concreto estrutural", "fck 25", "c-25"],
     estrutura_forma: ["forma", "formas", "forma estrutura", "forma para concreto"],
     estrutura_aco: ["aco", "armadura", "vergalhao", "corte dobra", "ca-50", "ca-60"]
@@ -1592,6 +1644,13 @@ function parseDimensionPair(value) {
 
 function renderTakeoffSummary(values) {
   if (!els.takeoffSummary) return;
+  const foundationLabels = {
+    baldrame: "Viga baldrame",
+    radier: "Radier",
+    sapata_corrida: "Sapata corrida",
+    none: "Nao incluir"
+  };
+  const foundationLabel = foundationLabels[values.foundationType] || "Viga baldrame";
 
   els.takeoffSummary.innerHTML = `
     <strong>Memoria de calculo</strong><br>
@@ -1608,7 +1667,10 @@ function renderTakeoffSummary(values) {
     Chapisco: ${formatNumber(values.chapiscoArea)} m2 |
     Emboco/reboco: ${formatNumber(values.rebocoArea)} m2 |
     Acabamento/pintura: ${formatNumber(values.finishArea)} m2<br>
-    Baldrame: ${formatNumber(values.baldrameVolume)} m3 |
+    Fundacao: ${foundationLabel} |
+    Baldrame/sapata: ${formatNumber(values.baldrameVolume)} m3 |
+    Radier: ${formatNumber(values.radierVolume)} m3 (${formatNumber(values.radierThickness)} m) |
+    Volume considerado: ${formatNumber(values.foundationVolume)} m3<br>
     Piso terreo + superior: ${formatNumber(values.groundFloorArea)} + ${formatNumber(values.upperFloorArea)} = ${formatNumber(values.floorArea)} m2 |
     Cobertura real informada: ${formatNumber(values.roofArea)} m2 |
     Perda tecnica: ${formatNumber(values.wastePercent)}%`;
@@ -1911,9 +1973,11 @@ function clearProjectReaderFields() {
     els.doorSize,
     els.windowCount,
     els.windowSize,
+    els.foundationType,
     els.baldrameLength,
     els.baldrameWidth,
     els.baldrameHeight,
+    els.radierThickness,
     els.floorArea,
     els.upperFloorArea,
     els.roofArea
@@ -1922,6 +1986,10 @@ function clearProjectReaderFields() {
   });
 
   if (els.masonryOpeningRule) els.masonryOpeningRule.value = "excess2";
+  if (els.foundationType) els.foundationType.value = "baldrame";
+  if (els.baldrameWidth) els.baldrameWidth.value = "0.2";
+  if (els.baldrameHeight) els.baldrameHeight.value = "0.3";
+  if (els.radierThickness) els.radierThickness.value = "0.12";
   if (els.chapiscoFaces) els.chapiscoFaces.value = "2";
   if (els.rebocoFaces) els.rebocoFaces.value = "2";
   if (els.finishFaces) els.finishFaces.value = "2";
