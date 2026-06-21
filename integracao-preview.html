@@ -1,0 +1,1076 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>E-CORP | Sistema Operacional</title>
+    <style>
+      :root {
+        --bg: #f4f6f1;
+        --surface: #ffffff;
+        --soft: #edf3ea;
+        --line: #dbe4d7;
+        --brand: #2d6a4f;
+        --brand-dark: #1f513c;
+        --text: #1b241d;
+        --muted: #667066;
+        --danger: #a73535;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; background: var(--bg); color: var(--text); font-family: Arial, Helvetica, sans-serif; }
+      header { position: sticky; top: 0; z-index: 20; background: var(--surface); border-bottom: 1px solid var(--line); box-shadow: 0 8px 24px rgba(33, 48, 39, 0.08); }
+      .bar { align-items: center; display: flex; gap: 16px; justify-content: space-between; margin: 0 auto; max-width: 1220px; padding: 14px 20px; }
+      .brand { align-items: center; display: flex; gap: 12px; }
+      .brand-home { background: transparent; border: 0; border-radius: 8px; cursor: pointer; padding: 4px; text-align: left; }
+      .brand-home:hover { background: var(--soft); }
+      .logo { align-items: center; background: var(--brand); border-radius: 8px; color: #fff; display: flex; font-weight: 800; height: 44px; justify-content: center; width: 44px; }
+      h1, h2, h3, p { margin: 0; }
+      h1 { font-size: 1.08rem; }
+      h2 { font-size: clamp(1.5rem, 3vw, 2.2rem); }
+      h3 { font-size: 1rem; }
+      .muted { color: var(--muted); font-size: 0.92rem; }
+      nav { display: flex; flex-wrap: wrap; gap: 8px; }
+      button, .tab, input, select, textarea { font: inherit; }
+      button, .tab { border: 1px solid var(--line); border-radius: 6px; color: var(--text); cursor: pointer; font-weight: 700; padding: 10px 12px; text-decoration: none; background: var(--surface); }
+      button.primary, .tab.active { background: var(--brand); border-color: var(--brand); color: #fff; }
+      button.danger { border-color: #e5c5c5; color: var(--danger); }
+      main { margin: 0 auto; max-width: 1220px; padding: 22px 20px 32px; }
+      .view { display: none; }
+      .view.active { display: block; }
+      .hero { background: linear-gradient(135deg, rgba(45, 106, 79, 0.14), #fff); border: 1px solid var(--line); border-radius: 8px; display: grid; gap: 18px; grid-template-columns: minmax(0, 1fr) 340px; margin-bottom: 20px; padding: 22px; }
+      .grid { display: grid; gap: 14px; }
+      .grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .grid.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .card { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+      .stat { display: grid; gap: 8px; }
+      .stat strong { font-size: 1.8rem; }
+      .toolbar { align-items: center; display: flex; flex-wrap: wrap; gap: 10px; justify-content: space-between; margin-bottom: 14px; }
+      label { display: grid; gap: 6px; font-weight: 700; }
+      input, select, textarea { border: 1px solid var(--line); border-radius: 6px; padding: 10px; width: 100%; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border-bottom: 1px solid var(--line); padding: 10px; text-align: left; vertical-align: top; }
+      th { background: var(--soft); font-size: 0.86rem; }
+      .module { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+      .module-head { align-items: center; background: var(--soft); border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; padding: 12px 16px; }
+      iframe { border: 0; display: block; height: 820px; width: 100%; }
+      .pill { background: var(--soft); border-radius: 999px; display: inline-block; font-size: 0.82rem; font-weight: 700; padding: 4px 9px; }
+      .empty { border: 1px dashed var(--line); border-radius: 8px; color: var(--muted); padding: 18px; text-align: center; }
+      .progress { background: var(--soft); border-radius: 999px; height: 12px; overflow: hidden; }
+      .progress span { background: var(--brand); display: block; height: 100%; }
+      .thumbs { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+      .thumb { border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+      .thumb img { aspect-ratio: 4 / 3; display: block; object-fit: cover; width: 100%; }
+      .thumb div { padding: 8px; }
+      .hidden { display: none !important; }
+      .admin-lock { margin: 0 auto; max-width: 520px; }
+      .admin-status { align-items: center; display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
+      @media (max-width: 850px) {
+        .bar, .hero { align-items: stretch; display: grid; grid-template-columns: 1fr; }
+        nav, .grid.cols-3, .grid.cols-2 { grid-template-columns: 1fr 1fr; display: grid; }
+        iframe { height: 900px; }
+      }
+      @media (max-width: 560px) {
+        nav, .grid.cols-3, .grid.cols-2 { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="bar">
+        <button class="brand brand-home" id="homeLogoBtn" type="button" title="Voltar para a tela inicial">
+          <div class="logo">EC</div>
+          <div>
+            <h1>E-CORP SERVICOS LTDA</h1>
+            <p class="muted">Sistema operacional da construtora</p>
+          </div>
+        </button>
+        <nav>
+          <button class="tab active" data-view="operacao">Operacao</button>
+          <button class="tab" data-view="ponto">Registro de Ponto</button>
+          <button class="tab" data-view="colaborador">Area do Colaborador</button>
+          <button class="tab" data-view="admin">Admin</button>
+          <button class="tab" data-view="controleObra">Controle de Obra</button>
+          <button class="tab" data-view="cliente">Area do Cliente</button>
+          <button class="tab" data-view="orcamentos">Orcamentos</button>
+          <button class="tab" data-view="materiais">Materiais</button>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="view active" id="operacao">
+        <div class="hero">
+          <div>
+            <p class="muted">Painel principal</p>
+            <h2>Operacao da obra em um lugar so</h2>
+            <p class="muted">Acompanhe equipe, registros de ponto, obras em andamento e orcamentos. A parte de TI foi retirada desta navegacao.</p>
+          </div>
+          <div class="card">
+            <strong>Status da integracao</strong>
+            <p class="muted">Ponto, colaborador, admin e orcamentos aparecem como areas do sistema principal.</p>
+          </div>
+        </div>
+        <div class="grid cols-3">
+          <div class="card stat"><span class="muted">Colaboradores cadastrados</span><strong id="statColabs">0</strong></div>
+          <div class="card stat"><span class="muted">Obras cadastradas</span><strong id="statObras">0</strong></div>
+          <div class="card stat"><span class="muted">Pontos registrados</span><strong id="statPontos">0</strong></div>
+          <div class="card stat"><span class="muted">Orcamentos SINAPI</span><strong>Ativo</strong></div>
+          <div class="card stat"><span class="muted">Banco de materiais</span><strong>Ativo</strong></div>
+        </div>
+        <div class="card" style="margin-top:14px">
+          <h3>Obras comuns da E-CORP</h3>
+          <p class="muted">Casas terreas, sobrados, barracoes, reformas, fundacoes e estruturas metalicas.</p>
+        </div>
+      </section>
+
+      <section class="view" id="ponto">
+        <div class="toolbar">
+          <div>
+            <h2>Registro de Ponto</h2>
+            <p class="muted">Entre com CPF e senha, selecione a obra e registre o ponto.</p>
+          </div>
+          <div class="admin-status hidden" id="colabSessionStatusPonto">
+            <span class="pill" id="pontoColabLogado">Colaborador logado</span>
+            <button type="button" data-colab-logout>Sair</button>
+          </div>
+        </div>
+        <form class="card grid admin-lock" id="pontoLoginForm">
+          <h3>Acesso do funcionario</h3>
+          <p class="muted">Use o CPF cadastrado pelo Admin. A senha inicial e 123456.</p>
+          <label>CPF<input id="pontoCpf" autocomplete="username" required /></label>
+          <label>Senha<input id="pontoSenha" autocomplete="current-password" required type="password" /></label>
+          <button class="primary" type="submit">Entrar para registrar ponto</button>
+          <p class="muted" id="pontoLoginMsg"></p>
+        </form>
+        <form class="card grid admin-lock hidden" id="primeiroAcessoFormPonto">
+          <h3>Primeiro acesso</h3>
+          <p class="muted">Por seguranca, cadastre uma nova senha antes de continuar.</p>
+          <label>Nova senha<input id="novaSenhaPonto" minlength="4" required type="password" /></label>
+          <label>Confirmar senha<input id="confirmaSenhaPonto" minlength="4" required type="password" /></label>
+          <button class="primary" type="submit">Salvar nova senha</button>
+          <p class="muted" id="primeiroAcessoMsgPonto"></p>
+        </form>
+        <div id="pontoPanel" class="hidden">
+          <form class="card grid cols-2" id="pontoForm">
+            <label>Funcionario<input id="pontoColaboradorNome" disabled /></label>
+            <label>Obra<select id="pontoObra"></select></label>
+            <label>Tipo<select id="pontoTipo"><option>Entrada</option><option>Saida almoco</option><option>Retorno almoco</option><option>Saida</option></select></label>
+            <label>Observacao<input id="pontoObs" placeholder="Opcional" /></label>
+            <button class="primary" type="submit">Registrar ponto agora</button>
+          </form>
+        </div>
+        <div class="card" style="margin-top:14px">
+          <h3>Ultimos registros</h3>
+          <div id="pontosLista"></div>
+        </div>
+      </section>
+
+      <section class="view" id="colaborador">
+        <div class="toolbar">
+          <div>
+            <h2>Area do Colaborador</h2>
+            <p class="muted">Acesse com CPF e senha para consultar seus registros.</p>
+          </div>
+          <div class="admin-status hidden" id="colabSessionStatusPortal">
+            <span class="pill" id="portalColabLogado">Colaborador logado</span>
+            <button type="button" data-colab-logout>Sair</button>
+          </div>
+        </div>
+        <form class="card grid admin-lock" id="portalLoginForm">
+          <h3>Acesso do colaborador</h3>
+          <p class="muted">Seu usuario e o CPF cadastrado. A senha inicial e 123456.</p>
+          <label>CPF<input id="portalCpf" autocomplete="username" required /></label>
+          <label>Senha<input id="portalSenha" autocomplete="current-password" required type="password" /></label>
+          <button class="primary" type="submit">Entrar na area do colaborador</button>
+          <p class="muted" id="portalLoginMsg"></p>
+        </form>
+        <form class="card grid admin-lock hidden" id="primeiroAcessoFormPortal">
+          <h3>Primeiro acesso</h3>
+          <p class="muted">Cadastre uma nova senha para liberar sua area.</p>
+          <label>Nova senha<input id="novaSenhaPortal" minlength="4" required type="password" /></label>
+          <label>Confirmar senha<input id="confirmaSenhaPortal" minlength="4" required type="password" /></label>
+          <button class="primary" type="submit">Salvar nova senha</button>
+          <p class="muted" id="primeiroAcessoMsgPortal"></p>
+        </form>
+        <div id="portalPanel" class="hidden">
+          <div class="card grid cols-2">
+            <div>
+              <span class="pill" id="portalContrato">Contrato</span>
+              <h3 id="portalNome" style="margin-top:10px">-</h3>
+              <p class="muted" id="portalResumo">Entre para visualizar.</p>
+            </div>
+          </div>
+          <div class="card" style="margin-top:14px">
+            <h3>Meus pontos</h3>
+            <div id="portalPontos"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="admin">
+        <div class="toolbar">
+          <div>
+            <h2>Admin</h2>
+            <p class="muted">Acesso restrito para cadastro de funcionarios, obras e visao geral dos registros.</p>
+          </div>
+          <div class="admin-status hidden" id="adminStatus">
+            <span class="pill">Logado como ADM</span>
+            <button type="button" id="adminLogout">Sair</button>
+          </div>
+        </div>
+
+        <form class="card grid admin-lock" id="adminLoginForm">
+          <div>
+            <h3>Acesso administrativo</h3>
+            <p class="muted">Entre com usuario e senha para liberar os cadastros.</p>
+          </div>
+          <label>Usuario<input id="adminUser" autocomplete="username" placeholder="ADM" required /></label>
+          <label>Senha<input id="adminPass" autocomplete="current-password" placeholder="ADM6347" required type="password" /></label>
+          <button class="primary" type="submit">Entrar no admin</button>
+          <p class="muted" id="adminLoginMsg"></p>
+        </form>
+
+        <div id="adminPanel" class="hidden">
+          <form class="card grid cols-3" id="colabForm">
+            <input type="hidden" id="colabId" />
+            <label>Nome completo<input id="colabNome" required /></label>
+            <label>CPF<input id="colabCpf" required /></label>
+            <label>Telefone<input id="colabTelefone" /></label>
+            <label>Tipo de contrato<select id="colabContrato"><option>Mensalista</option><option>Diarista</option><option>Horista</option><option>Empreitada</option></select></label>
+            <label>Valor base<input id="colabValor" type="number" step="0.01" /></label>
+            <label>Funcao<input id="colabFuncao" value="Ajudante" /></label>
+            <button class="primary" type="submit">Salvar funcionario</button>
+            <button type="button" id="limparColab">Limpar formulario</button>
+          </form>
+          <form class="card grid cols-3" id="obraForm" style="margin-top:14px">
+            <input type="hidden" id="obraId" />
+            <label>Nome da obra<input id="obraNome" required placeholder="Ex.: Sobrado Jardim Paulista" /></label>
+            <label>Cliente<input id="obraCliente" placeholder="Nome do cliente" /></label>
+            <label>Endereco<input id="obraEndereco" /></label>
+            <label>Tipo<select id="obraTipo"><option>Casa terrea</option><option>Sobrado</option><option>Barracao</option><option>Reforma</option><option>Fundacao</option><option>Estrutura metalica</option></select></label>
+            <label>Status<select id="obraStatus"><option>Em andamento</option><option>Orcamento</option><option>Pausada</option><option>Finalizada</option></select></label>
+            <label>Inicio previsto<input id="obraInicio" type="date" /></label>
+            <label>Usuario do cliente<input id="obraClienteUsuario" placeholder="Ex.: cliente.casa" /></label>
+            <label>Senha do cliente<input id="obraClienteSenha" placeholder="Definida pelo administrador" /></label>
+            <button class="primary" type="submit">Salvar obra</button>
+            <button type="button" id="limparObra">Limpar formulario</button>
+          </form>
+          <div class="grid cols-2" style="margin-top:14px">
+            <div class="card">
+              <h3>Funcionarios</h3>
+              <div id="colabsTabela"></div>
+            </div>
+            <div class="card">
+              <h3>Obras cadastradas</h3>
+              <div id="obrasTabela"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="controleObra">
+        <div class="toolbar">
+          <div>
+            <h2>Controle de Obra</h2>
+            <p class="muted">Lancamentos por obra: NFe, projetos, fotos, andamento, gastos e equipe alocada.</p>
+          </div>
+          <span class="pill" id="controlePermissao">Acesso restrito</span>
+        </div>
+        <div id="controleBloqueado" class="card admin-lock hidden">
+          <h3>Acesso restrito</h3>
+          <p class="muted">Esta area e liberada para o ADM ou funcionario com funcao Administrativo.</p>
+          <button class="primary" type="button" onclick="showView('admin')">Entrar como ADM</button>
+        </div>
+        <div id="controlePanel" class="grid hidden">
+          <div class="card grid cols-3">
+            <label>Obra<select id="controleObraSelect"></select></label>
+            <label>Andamento atual (%)<input id="controlePercentual" min="0" max="100" type="number" /></label>
+            <label>Status da obra<select id="controleStatus"><option>Em andamento</option><option>Orcamento</option><option>Pausada</option><option>Finalizada</option></select></label>
+            <label style="grid-column:1 / -1">Resumo para cliente<textarea id="controleResumo" rows="3" placeholder="Ex.: Baldrame concluido, alvenaria iniciada..."></textarea></label>
+            <button class="primary" id="salvarControleObra" type="button">Salvar andamento</button>
+          </div>
+
+          <div class="grid cols-2">
+            <form class="card grid" id="controleGastoForm">
+              <h3>Lancar NFe / compra</h3>
+              <label>Fornecedor<input id="controleFornecedor" placeholder="Nome do fornecedor" /></label>
+              <label>Data<input id="controleDataCompra" type="date" /></label>
+              <label>Descricao<input id="controleDescricaoCompra" placeholder="Ex.: cimento, areia, ferragem" /></label>
+              <label>Valor<input id="controleValorCompra" min="0" step="0.01" type="number" /></label>
+              <label>NFe em PDF<input id="controleNfeArquivo" accept="application/pdf" type="file" /></label>
+              <button class="primary" type="submit">Adicionar gasto</button>
+            </form>
+
+            <form class="card grid" id="controleProjetoForm">
+              <h3>Anexar projeto</h3>
+              <label>Tipo de projeto<select id="controleProjetoTipo"><option>Arquitetonico</option><option>Estrutural</option><option>Eletrico</option><option>Hidraulico</option><option>Outro</option></select></label>
+              <label>Arquivo PDF<input id="controleProjetoArquivo" accept="application/pdf" type="file" /></label>
+              <button class="primary" type="submit">Adicionar projeto</button>
+            </form>
+          </div>
+
+          <form class="card grid" id="controleFotoForm">
+            <h3>Fotos do avanco da obra</h3>
+            <div class="grid cols-3">
+              <label>Legenda<input id="controleFotoLegenda" placeholder="Ex.: concretagem da laje" /></label>
+              <label>Data<input id="controleFotoData" type="date" /></label>
+              <label>Fotos<input id="controleFotoArquivos" accept="image/*" multiple type="file" /></label>
+            </div>
+            <button class="primary" type="submit">Adicionar fotos</button>
+          </form>
+
+          <div class="card">
+            <h3>Funcionarios alocados</h3>
+            <p class="muted">Marque quem esta trabalhando nesta obra. Tambem aparecem registros de ponto vinculados a ela.</p>
+            <div id="controleAlocados" class="grid cols-3" style="margin-top:10px"></div>
+          </div>
+
+          <div class="grid cols-2">
+            <div class="card">
+              <h3>Gastos lancados</h3>
+              <div id="controleGastosLista"></div>
+            </div>
+            <div class="card">
+              <h3>Projetos anexados</h3>
+              <div id="controleProjetosLista"></div>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Fotos da obra</h3>
+            <div id="controleFotosLista"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="cliente">
+        <div class="toolbar">
+          <div>
+            <h2>Area do Cliente</h2>
+            <p class="muted">Acompanhamento da evolucao da obra e dos gastos liberados pelo controle da obra.</p>
+          </div>
+          <div class="admin-status hidden" id="clienteStatus">
+            <span class="pill" id="clienteLogado">Cliente logado</span>
+            <button type="button" id="clienteLogout">Sair</button>
+          </div>
+        </div>
+        <form class="card grid admin-lock" id="clienteLoginForm">
+          <h3>Acesso do cliente</h3>
+          <p class="muted">Usuario e senha sao definidos pelo administrador no cadastro da obra.</p>
+          <label>Usuario<input id="clienteUsuario" autocomplete="username" required /></label>
+          <label>Senha<input id="clienteSenha" autocomplete="current-password" required type="password" /></label>
+          <button class="primary" type="submit">Entrar</button>
+          <p class="muted" id="clienteLoginMsg"></p>
+        </form>
+        <div id="clientePanel" class="grid hidden">
+          <div class="card">
+            <p class="muted" id="clienteObraTipo">Obra</p>
+            <h2 id="clienteObraNome">-</h2>
+            <p class="muted" id="clienteObraEndereco">-</p>
+            <div class="progress" style="margin-top:14px"><span id="clienteProgressoBarra" style="width:0%"></span></div>
+            <p class="muted" id="clienteProgressoTexto" style="margin-top:8px">0% concluido</p>
+          </div>
+          <div class="grid cols-3">
+            <div class="card stat"><span class="muted">Gasto total lancado</span><strong id="clienteGastoTotal">R$ 0,00</strong></div>
+            <div class="card stat"><span class="muted">NFe / compras</span><strong id="clienteQtdCompras">0</strong></div>
+            <div class="card stat"><span class="muted">Fotos de avanco</span><strong id="clienteQtdFotos">0</strong></div>
+          </div>
+          <div class="grid cols-2">
+            <div class="card">
+              <h3>Ultima atualizacao</h3>
+              <p id="clienteResumoObra" class="muted">Sem atualizacao cadastrada.</p>
+            </div>
+            <div class="card">
+              <h3>Equipe na obra</h3>
+              <div id="clienteEquipe"></div>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Compras e gastos</h3>
+            <div id="clienteGastosLista"></div>
+          </div>
+          <div class="card">
+            <h3>Fotos recentes</h3>
+            <div id="clienteFotosLista"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="orcamentos">
+        <div class="module">
+          <div class="module-head">
+            <div>
+              <h2>Orcamentos</h2>
+              <p class="muted">Modulo SINAPI SP integrado ao sistema principal.</p>
+            </div>
+            <a class="tab active" href="_ecorp_site_zip/client/public/orcamentos/index.html" target="_blank">Abrir em tela cheia</a>
+          </div>
+          <iframe src="_ecorp_site_zip/client/public/orcamentos/index.html" title="Sistema de orcamentos integrado"></iframe>
+        </div>
+      </section>
+
+      <section class="view" id="materiais">
+        <div class="module">
+          <div class="module-head">
+            <div>
+              <h2>Materiais</h2>
+              <p class="muted">Banco de compras reais por NFe, fornecedor e historico de precos.</p>
+            </div>
+            <a class="tab active" href="_ecorp_site_zip/client/public/materiais/index.html" target="_blank">Abrir em tela cheia</a>
+          </div>
+          <iframe src="_ecorp_site_zip/client/public/materiais/index.html" title="Banco de materiais integrado"></iframe>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const storeKey = "ecorp-operacional-preview-v1";
+      const adminSessionKey = "ecorp-admin-auth-preview";
+      const colaboradorSessionKey = "ecorp-colaborador-auth-preview";
+      const clienteSessionKey = "ecorp-cliente-auth-preview";
+      const apiDisponivel = location.protocol === "http:" || location.protocol === "https:";
+      const senhaPadraoColaborador = "123456";
+      const adminCredentials = { user: "ADM", pass: "ADM6347" };
+      const seed = {
+        colaboradores: [
+          { id: "c1", nome: "Joao Pedro Silva", cpf: "111.222.333-44", telefone: "(18) 99999-1111", contrato: "Diarista", valor: 180, funcao: "Pedreiro" },
+          { id: "c2", nome: "Marcos Souza", cpf: "222.333.444-55", telefone: "(18) 99999-2222", contrato: "Mensalista", valor: 2800, funcao: "Encarregado" },
+          { id: "c3", nome: "Ana Paula Lima", cpf: "333.444.555-66", telefone: "(18) 99999-3333", contrato: "Horista", valor: 28, funcao: "Administrativo" }
+        ],
+        obras: [
+          { id: "o1", nome: "Casa terrea - cliente local", cliente: "Cliente local", endereco: "Presidente Prudente/SP", tipo: "Casa terrea", status: "Em andamento", inicio: "", clienteUsuario: "cliente", clienteSenha: "123456" }
+        ],
+        pontos: [],
+        controles: {}
+      };
+      let db = JSON.parse(localStorage.getItem(storeKey) || "null") || structuredClone(seed);
+      let adminAutenticado = localStorage.getItem(adminSessionKey) === "ok";
+      let colaboradorLogadoId = localStorage.getItem(colaboradorSessionKey) || "";
+      let clienteObraLogadaId = localStorage.getItem(clienteSessionKey) || "";
+      let saveTimer = null;
+      const save = () => {
+        localStorage.setItem(storeKey, JSON.stringify(db));
+        if (!apiDisponivel) return;
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(() => {
+          fetch("/api/operacional", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(db)
+          }).catch(() => {
+            console.warn("Nao foi possivel sincronizar com o servidor. Dados mantidos neste navegador.");
+          });
+        }, 250);
+      };
+      const money = value => Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+      const byId = id => document.getElementById(id);
+      const escapeHtml = value => String(value || "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
+
+      function normalizeDb() {
+        db = db || structuredClone(seed);
+        db.colaboradores = db.colaboradores || [];
+        db.obras = db.obras && db.obras.length ? db.obras : seed.obras;
+        db.pontos = db.pontos || [];
+        db.controles = db.controles || {};
+        db.colaboradores = db.colaboradores.map(c => ({
+          ...c,
+          cpfLogin: normalizeCpf(c.cpf),
+          senha: c.senha || senhaPadraoColaborador,
+          primeiroAcesso: typeof c.primeiroAcesso === "boolean" ? c.primeiroAcesso : !c.senha
+        }));
+      }
+
+      async function loadOnlineDb() {
+        if (!apiDisponivel) return;
+        try {
+          const response = await fetch("/api/operacional");
+          if (!response.ok) return;
+          const onlineDb = await response.json();
+          if (onlineDb && typeof onlineDb === "object" && Object.keys(onlineDb).length) {
+            db = onlineDb;
+            localStorage.setItem(storeKey, JSON.stringify(db));
+          }
+        } catch (error) {
+          console.warn("Servidor indisponivel. Abrindo dados locais.");
+        }
+      }
+
+      function normalizeCpf(value) {
+        return String(value || "").replace(/\D/g, "");
+      }
+
+      function getColaboradorLogado() {
+        return db.colaboradores.find(c => c.id === colaboradorLogadoId) || null;
+      }
+
+      function findColaboradorByCpf(cpf) {
+        const cpfLogin = normalizeCpf(cpf);
+        return db.colaboradores.find(c => normalizeCpf(c.cpfLogin || c.cpf) === cpfLogin) || null;
+      }
+
+      function isColaboradorAdministrativo() {
+        const c = getColaboradorLogado();
+        return Boolean(c && normalizeText(c.funcao).includes("administrativo") && !c.primeiroAcesso);
+      }
+
+      function canAccessControleObra() {
+        return adminAutenticado || isColaboradorAdministrativo();
+      }
+
+      function normalizeText(value) {
+        return String(value || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      }
+
+      function getControle(obraId) {
+        if (!obraId) return { gastos: [], projetos: [], fotos: [], alocados: [], percentual: 0, resumo: "", status: "" };
+        db.controles[obraId] = db.controles[obraId] || { gastos: [], projetos: [], fotos: [], alocados: [], percentual: 0, resumo: "", status: "" };
+        db.controles[obraId].gastos = db.controles[obraId].gastos || [];
+        db.controles[obraId].projetos = db.controles[obraId].projetos || [];
+        db.controles[obraId].fotos = db.controles[obraId].fotos || [];
+        db.controles[obraId].alocados = db.controles[obraId].alocados || [];
+        return db.controles[obraId];
+      }
+
+      function selectedObraControleId() {
+        return byId("controleObraSelect")?.value || db.obras[0]?.id || "";
+      }
+
+      function getClienteObraLogada() {
+        return db.obras.find(o => o.id === clienteObraLogadaId) || null;
+      }
+
+      function showView(view, options = {}) {
+        if (view === "operacao" && !adminAutenticado) {
+          byId("adminLoginMsg").textContent = "A area Operacao e restrita ao administrador. Entre com ADM / ADM6347.";
+          return showView("admin", { force: true });
+        }
+        if (view === "controleObra" && !canAccessControleObra()) {
+          renderControleObra();
+        }
+
+        const targetButton = document.querySelector(`[data-view="${view}"]`);
+        const targetView = document.getElementById(view);
+        if (!targetButton || !targetView) return;
+
+        document.querySelectorAll("[data-view]").forEach(b => b.classList.toggle("active", b === targetButton));
+        document.querySelectorAll(".view").forEach(v => v.classList.toggle("active", v.id === view));
+        if (view === "controleObra") renderControleObra();
+        if (view === "cliente") renderClienteArea();
+        if (!options.skipHash) location.hash = view;
+      }
+
+      document.querySelectorAll("[data-view]").forEach(btn => {
+        btn.addEventListener("click", () => showView(btn.dataset.view));
+      });
+      byId("homeLogoBtn").addEventListener("click", () => showView("operacao"));
+
+      function renderSelects() {
+        const controleAtual = byId("controleObraSelect")?.value || "";
+        const obraOptions = db.obras.map(o => `<option value="${o.id}">${o.nome} - ${o.status}</option>`).join("");
+        byId("pontoObra").innerHTML = obraOptions;
+        byId("controleObraSelect").innerHTML = obraOptions;
+        if (controleAtual && db.obras.some(o => o.id === controleAtual)) byId("controleObraSelect").value = controleAtual;
+        const colaborador = getColaboradorLogado();
+        byId("pontoColaboradorNome").value = colaborador ? `${colaborador.nome} - CPF ${colaborador.cpf}` : "";
+      }
+
+      function renderStats() {
+        byId("statColabs").textContent = db.colaboradores.length;
+        byId("statObras").textContent = db.obras.length;
+        byId("statPontos").textContent = db.pontos.length;
+      }
+
+      function renderPontos() {
+        const rows = db.pontos.slice().reverse().map(p => {
+          const c = db.colaboradores.find(item => item.id === p.colaboradorId);
+          const obra = db.obras.find(item => item.id === p.obraId);
+          return `<tr><td>${c ? escapeHtml(c.nome) : "-"}</td><td>${escapeHtml(p.tipo)}</td><td>${escapeHtml(obra ? obra.nome : p.obra)}</td><td>${escapeHtml(p.data)}</td><td>${escapeHtml(p.obs || "-")}</td></tr>`;
+        }).join("");
+        byId("pontosLista").innerHTML = rows ? `<table><thead><tr><th>Colaborador</th><th>Tipo</th><th>Obra</th><th>Data/hora</th><th>Obs.</th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">Nenhum ponto registrado ainda.</div>`;
+      }
+
+      function renderPortal() {
+        const c = getColaboradorLogado();
+        if (!c || c.primeiroAcesso) {
+          byId("portalNome").textContent = "-";
+          byId("portalContrato").textContent = "Contrato";
+          byId("portalResumo").textContent = "Entre para visualizar.";
+          byId("portalPontos").innerHTML = `<div class="empty">Faca login para consultar seus registros.</div>`;
+          return;
+        }
+        const pontos = db.pontos.filter(p => p.colaboradorId === c.id).slice().reverse();
+        byId("portalNome").textContent = c.nome;
+        byId("portalContrato").textContent = `${c.contrato} - ${money(c.valor)}`;
+        byId("portalResumo").textContent = `${c.funcao} | CPF ${c.cpf} | ${pontos.length} ponto(s) registrado(s)`;
+        byId("portalPontos").innerHTML = pontos.length ? `<table><thead><tr><th>Tipo</th><th>Obra</th><th>Data/hora</th></tr></thead><tbody>${pontos.map(p => {
+          const obra = db.obras.find(item => item.id === p.obraId);
+          return `<tr><td>${escapeHtml(p.tipo)}</td><td>${escapeHtml(obra ? obra.nome : p.obra)}</td><td>${escapeHtml(p.data)}</td></tr>`;
+        }).join("")}</tbody></table>` : `<div class="empty">Este colaborador ainda nao tem ponto registrado.</div>`;
+      }
+
+      function renderColabs() {
+        const rows = db.colaboradores.map(c => `<tr><td><strong>${escapeHtml(c.nome)}</strong><br><span class="muted">${escapeHtml(c.funcao)}</span></td><td>${escapeHtml(c.cpf)}<br><span class="muted">Usuario: CPF</span></td><td>${escapeHtml(c.telefone || "-")}</td><td>${escapeHtml(c.contrato)}<br>${money(c.valor)}</td><td>${c.primeiroAcesso ? "Senha padrao" : "Senha cadastrada"}</td><td><button type="button" onclick="editColab('${c.id}')">Editar</button> <button class="danger" type="button" onclick="deleteColab('${c.id}')">Excluir</button></td></tr>`).join("");
+        byId("colabsTabela").innerHTML = rows ? `<table><thead><tr><th>Nome</th><th>CPF/Login</th><th>Telefone</th><th>Contrato</th><th>Acesso</th><th>Acoes</th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">Nenhum funcionario cadastrado.</div>`;
+      }
+
+      function renderObras() {
+        const rows = db.obras.map(o => `<tr><td><strong>${escapeHtml(o.nome)}</strong><br><span class="muted">${escapeHtml(o.tipo)}</span></td><td>${escapeHtml(o.cliente || "-")}<br><span class="muted">Usuario cliente: ${escapeHtml(o.clienteUsuario || "-")}</span></td><td>${escapeHtml(o.endereco || "-")}</td><td>${escapeHtml(o.status)}<br>${escapeHtml(o.inicio || "Sem data")}</td><td><button type="button" onclick="editObra('${o.id}')">Editar</button> <button type="button" onclick="abrirControleObra('${o.id}')">Controle</button> <button class="danger" type="button" onclick="deleteObra('${o.id}')">Excluir</button></td></tr>`).join("");
+        byId("obrasTabela").innerHTML = rows ? `<table><thead><tr><th>Obra</th><th>Cliente</th><th>Endereco</th><th>Status</th><th>Acoes</th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">Nenhuma obra cadastrada.</div>`;
+      }
+
+      function renderControleObra() {
+        const allowed = canAccessControleObra();
+        byId("controlePanel").classList.toggle("hidden", !allowed);
+        byId("controleBloqueado").classList.toggle("hidden", allowed);
+        byId("controlePermissao").textContent = allowed ? (adminAutenticado ? "Acesso ADM" : "Acesso Administrativo") : "Acesso restrito";
+        if (!allowed) return;
+        renderSelects();
+        const obraId = selectedObraControleId();
+        const obra = db.obras.find(o => o.id === obraId);
+        const controle = getControle(obraId);
+        byId("controlePercentual").value = controle.percentual || 0;
+        byId("controleStatus").value = controle.status || obra?.status || "Em andamento";
+        byId("controleResumo").value = controle.resumo || "";
+        renderControleAlocados(obraId);
+        renderControleListas(obraId);
+      }
+
+      function renderControleAlocados(obraId) {
+        const controle = getControle(obraId);
+        const pontosDaObra = db.pontos.filter(p => p.obraId === obraId).map(p => p.colaboradorId);
+        const html = db.colaboradores.map(c => {
+          const checked = controle.alocados.includes(c.id) || pontosDaObra.includes(c.id);
+          return `<label><input type="checkbox" data-alocado="${c.id}" ${checked ? "checked" : ""} /> ${escapeHtml(c.nome)} <span class="muted">${escapeHtml(c.funcao)}</span></label>`;
+        }).join("");
+        byId("controleAlocados").innerHTML = html || `<div class="empty">Nenhum funcionario cadastrado.</div>`;
+      }
+
+      function renderControleListas(obraId) {
+        const controle = getControle(obraId);
+        const gastos = controle.gastos.slice().reverse();
+        const projetos = controle.projetos.slice().reverse();
+        const fotos = controle.fotos.slice().reverse();
+        const gastosRows = gastos.map(g => `<tr><td><strong>${escapeHtml(g.descricao || "Compra")}</strong><br><span class="muted">${escapeHtml(g.fornecedor || "-")}</span></td><td>${escapeHtml(g.data || "-")}</td><td>${money(g.valor)}</td><td>${escapeHtml(g.arquivo || "-")}</td><td><button class="danger" type="button" onclick="deleteControleItem('${obraId}','gastos','${g.id}')">Excluir</button></td></tr>`).join("");
+        byId("controleGastosLista").innerHTML = gastosRows ? `<table><thead><tr><th>Compra</th><th>Data</th><th>Valor</th><th>NFe</th><th></th></tr></thead><tbody>${gastosRows}</tbody></table>` : `<div class="empty">Nenhum gasto lancado nesta obra.</div>`;
+        const projetosRows = projetos.map(p => `<tr><td>${escapeHtml(p.tipo)}</td><td>${escapeHtml(p.arquivo)}</td><td>${escapeHtml(p.data)}</td><td><button class="danger" type="button" onclick="deleteControleItem('${obraId}','projetos','${p.id}')">Excluir</button></td></tr>`).join("");
+        byId("controleProjetosLista").innerHTML = projetosRows ? `<table><thead><tr><th>Tipo</th><th>Arquivo</th><th>Data</th><th></th></tr></thead><tbody>${projetosRows}</tbody></table>` : `<div class="empty">Nenhum projeto anexado.</div>`;
+        byId("controleFotosLista").innerHTML = fotos.length ? `<div class="thumbs">${fotos.map(f => `<div class="thumb"><img src="${f.url}" alt="${escapeHtml(f.legenda)}" /><div><strong>${escapeHtml(f.legenda || "Foto da obra")}</strong><br><span class="muted">${escapeHtml(f.data || "")}</span><br><button class="danger" type="button" onclick="deleteControleItem('${obraId}','fotos','${f.id}')">Excluir</button></div></div>`).join("")}</div>` : `<div class="empty">Nenhuma foto cadastrada.</div>`;
+      }
+
+      function renderClienteArea() {
+        const obra = getClienteObraLogada();
+        const logged = Boolean(obra);
+        byId("clienteLoginForm").classList.toggle("hidden", logged);
+        byId("clientePanel").classList.toggle("hidden", !logged);
+        byId("clienteStatus").classList.toggle("hidden", !logged);
+        if (!obra) return;
+        const controle = getControle(obra.id);
+        const gastos = controle.gastos || [];
+        const fotos = controle.fotos || [];
+        const total = gastos.reduce((sum, item) => sum + Number(item.valor || 0), 0);
+        const equipeIds = new Set([...(controle.alocados || []), ...db.pontos.filter(p => p.obraId === obra.id).map(p => p.colaboradorId)]);
+        const equipe = db.colaboradores.filter(c => equipeIds.has(c.id));
+        byId("clienteLogado").textContent = obra.cliente || obra.nome;
+        byId("clienteObraTipo").textContent = `${obra.tipo || "Obra"} - ${controle.status || obra.status || ""}`;
+        byId("clienteObraNome").textContent = obra.nome;
+        byId("clienteObraEndereco").textContent = obra.endereco || "";
+        byId("clienteProgressoBarra").style.width = `${Math.max(0, Math.min(100, Number(controle.percentual || 0)))}%`;
+        byId("clienteProgressoTexto").textContent = `${Number(controle.percentual || 0)}% concluido`;
+        byId("clienteGastoTotal").textContent = money(total);
+        byId("clienteQtdCompras").textContent = gastos.length;
+        byId("clienteQtdFotos").textContent = fotos.length;
+        byId("clienteResumoObra").textContent = controle.resumo || "Sem atualizacao cadastrada.";
+        byId("clienteEquipe").innerHTML = equipe.length ? equipe.map(c => `<span class="pill">${escapeHtml(c.nome)} - ${escapeHtml(c.funcao)}</span>`).join(" ") : `<div class="empty">Equipe ainda nao vinculada.</div>`;
+        const gastoRows = gastos.slice().reverse().map(g => `<tr><td>${escapeHtml(g.descricao || "Compra")}</td><td>${escapeHtml(g.fornecedor || "-")}</td><td>${escapeHtml(g.data || "-")}</td><td>${money(g.valor)}</td></tr>`).join("");
+        byId("clienteGastosLista").innerHTML = gastoRows ? `<table><thead><tr><th>Item</th><th>Fornecedor</th><th>Data</th><th>Valor</th></tr></thead><tbody>${gastoRows}</tbody></table>` : `<div class="empty">Nenhum gasto lancado ainda.</div>`;
+        byId("clienteFotosLista").innerHTML = fotos.length ? `<div class="thumbs">${fotos.slice().reverse().map(f => `<div class="thumb"><img src="${f.url}" alt="${escapeHtml(f.legenda)}" /><div><strong>${escapeHtml(f.legenda || "Foto da obra")}</strong><br><span class="muted">${escapeHtml(f.data || "")}</span></div></div>`).join("")}</div>` : `<div class="empty">Nenhuma foto cadastrada ainda.</div>`;
+      }
+
+      function renderAdminAccess() {
+        byId("adminLoginForm").classList.toggle("hidden", adminAutenticado);
+        byId("adminPanel").classList.toggle("hidden", !adminAutenticado);
+        byId("adminStatus").classList.toggle("hidden", !adminAutenticado);
+      }
+
+      function renderColaboradorAccess() {
+        const c = getColaboradorLogado();
+        const logged = Boolean(c);
+        const firstAccess = Boolean(c && c.primeiroAcesso);
+        byId("pontoLoginForm").classList.toggle("hidden", logged);
+        byId("portalLoginForm").classList.toggle("hidden", logged);
+        byId("primeiroAcessoFormPonto").classList.toggle("hidden", !firstAccess);
+        byId("primeiroAcessoFormPortal").classList.toggle("hidden", !firstAccess);
+        byId("pontoPanel").classList.toggle("hidden", !logged || firstAccess);
+        byId("portalPanel").classList.toggle("hidden", !logged || firstAccess);
+        byId("colabSessionStatusPonto").classList.toggle("hidden", !logged || firstAccess);
+        byId("colabSessionStatusPortal").classList.toggle("hidden", !logged || firstAccess);
+        if (c) {
+          byId("pontoColabLogado").textContent = `${c.nome} - ${c.funcao}`;
+          byId("portalColabLogado").textContent = `${c.nome} - ${c.funcao}`;
+        }
+      }
+
+      function renderAll() {
+        renderSelects();
+        renderStats();
+        renderPontos();
+        renderPortal();
+        renderColabs();
+        renderObras();
+        renderControleObra();
+        renderClienteArea();
+        renderAdminAccess();
+        renderColaboradorAccess();
+      }
+
+      byId("pontoForm").addEventListener("submit", e => {
+        e.preventDefault();
+        const colaborador = getColaboradorLogado();
+        if (!colaborador || colaborador.primeiroAcesso) {
+          alert("Faca login e cadastre a nova senha antes de registrar o ponto.");
+          return;
+        }
+        db.pontos.push({
+          id: crypto.randomUUID(),
+          colaboradorId: colaborador.id,
+          obraId: byId("pontoObra").value,
+          tipo: byId("pontoTipo").value,
+          obs: byId("pontoObs").value,
+          data: new Date().toLocaleString("pt-BR")
+        });
+        byId("pontoObs").value = "";
+        save();
+        renderAll();
+      });
+
+      function loginColaborador(cpf, senha, messageId) {
+        const c = findColaboradorByCpf(cpf);
+        if (!c || c.senha !== senha) {
+          byId(messageId).textContent = "CPF ou senha incorretos.";
+          return;
+        }
+        colaboradorLogadoId = c.id;
+        localStorage.setItem(colaboradorSessionKey, c.id);
+        byId(messageId).textContent = c.primeiroAcesso ? "Primeiro acesso: cadastre uma nova senha." : "";
+        byId("pontoLoginForm").reset();
+        byId("portalLoginForm").reset();
+        renderAll();
+      }
+
+      function salvarNovaSenha(novaSenha, confirmaSenha, messageId) {
+        const c = getColaboradorLogado();
+        if (!c) {
+          byId(messageId).textContent = "Faca login novamente.";
+          return;
+        }
+        if (novaSenha !== confirmaSenha) {
+          byId(messageId).textContent = "As senhas nao conferem.";
+          return;
+        }
+        if (novaSenha === senhaPadraoColaborador) {
+          byId(messageId).textContent = "Escolha uma senha diferente da senha padrao.";
+          return;
+        }
+        if (novaSenha.length < 4) {
+          byId(messageId).textContent = "A nova senha precisa ter pelo menos 4 caracteres.";
+          return;
+        }
+        c.senha = novaSenha;
+        c.primeiroAcesso = false;
+        save();
+        byId("primeiroAcessoFormPonto").reset();
+        byId("primeiroAcessoFormPortal").reset();
+        byId(messageId).textContent = "";
+        renderAll();
+      }
+
+      byId("pontoLoginForm").addEventListener("submit", e => {
+        e.preventDefault();
+        loginColaborador(byId("pontoCpf").value, byId("pontoSenha").value, "pontoLoginMsg");
+      });
+      byId("portalLoginForm").addEventListener("submit", e => {
+        e.preventDefault();
+        loginColaborador(byId("portalCpf").value, byId("portalSenha").value, "portalLoginMsg");
+      });
+      byId("primeiroAcessoFormPonto").addEventListener("submit", e => {
+        e.preventDefault();
+        salvarNovaSenha(byId("novaSenhaPonto").value, byId("confirmaSenhaPonto").value, "primeiroAcessoMsgPonto");
+      });
+      byId("primeiroAcessoFormPortal").addEventListener("submit", e => {
+        e.preventDefault();
+        salvarNovaSenha(byId("novaSenhaPortal").value, byId("confirmaSenhaPortal").value, "primeiroAcessoMsgPortal");
+      });
+      document.querySelectorAll("[data-colab-logout]").forEach(btn => {
+        btn.addEventListener("click", () => {
+          colaboradorLogadoId = "";
+          localStorage.removeItem(colaboradorSessionKey);
+          renderAll();
+        });
+      });
+      byId("adminLoginForm").addEventListener("submit", e => {
+        e.preventDefault();
+        const user = byId("adminUser").value.trim().toUpperCase();
+        const pass = byId("adminPass").value;
+        if (user === adminCredentials.user && pass === adminCredentials.pass) {
+          adminAutenticado = true;
+          localStorage.setItem(adminSessionKey, "ok");
+          byId("adminLoginMsg").textContent = "";
+          byId("adminLoginForm").reset();
+          renderAdminAccess();
+          showView("operacao");
+        } else {
+          byId("adminLoginMsg").textContent = "Usuario ou senha incorretos.";
+        }
+      });
+      byId("adminLogout").addEventListener("click", () => {
+        adminAutenticado = false;
+        localStorage.removeItem(adminSessionKey);
+        renderAdminAccess();
+        if (location.hash === "#operacao") {
+          showView("admin");
+        }
+      });
+      byId("limparColab").addEventListener("click", () => {
+        byId("colabForm").reset();
+        byId("colabId").value = "";
+      });
+      byId("colabForm").addEventListener("submit", e => {
+        e.preventDefault();
+        const id = byId("colabId").value || crypto.randomUUID();
+        const existing = db.colaboradores.find(c => c.id === id);
+        const cpf = byId("colabCpf").value;
+        if (db.colaboradores.some(c => c.id !== id && normalizeCpf(c.cpf) === normalizeCpf(cpf))) {
+          alert("Ja existe um funcionario cadastrado com este CPF.");
+          return;
+        }
+        const item = {
+          id,
+          nome: byId("colabNome").value,
+          cpf,
+          cpfLogin: normalizeCpf(cpf),
+          telefone: byId("colabTelefone").value,
+          contrato: byId("colabContrato").value,
+          valor: Number(byId("colabValor").value || 0),
+          funcao: byId("colabFuncao").value,
+          senha: existing?.senha || senhaPadraoColaborador,
+          primeiroAcesso: typeof existing?.primeiroAcesso === "boolean" ? existing.primeiroAcesso : true
+        };
+        const index = db.colaboradores.findIndex(c => c.id === id);
+        if (index >= 0) db.colaboradores[index] = item;
+        else db.colaboradores.push(item);
+        byId("colabForm").reset();
+        byId("colabId").value = "";
+        save();
+        renderAll();
+      });
+
+      byId("limparObra").addEventListener("click", () => {
+        byId("obraForm").reset();
+        byId("obraId").value = "";
+      });
+      byId("obraForm").addEventListener("submit", e => {
+        e.preventDefault();
+        const id = byId("obraId").value || crypto.randomUUID();
+        const existing = db.obras.find(o => o.id === id);
+        const item = {
+          id,
+          nome: byId("obraNome").value,
+          cliente: byId("obraCliente").value,
+          endereco: byId("obraEndereco").value,
+          tipo: byId("obraTipo").value,
+          status: byId("obraStatus").value,
+          inicio: byId("obraInicio").value,
+          clienteUsuario: byId("obraClienteUsuario").value || existing?.clienteUsuario || "",
+          clienteSenha: byId("obraClienteSenha").value || existing?.clienteSenha || ""
+        };
+        const index = db.obras.findIndex(o => o.id === id);
+        if (index >= 0) db.obras[index] = item;
+        else db.obras.push(item);
+        byId("obraForm").reset();
+        byId("obraId").value = "";
+        save();
+        renderAll();
+      });
+
+      byId("controleObraSelect").addEventListener("change", renderControleObra);
+      byId("salvarControleObra").addEventListener("click", () => {
+        const obraId = selectedObraControleId();
+        const obra = db.obras.find(o => o.id === obraId);
+        if (!obra) return;
+        const controle = getControle(obraId);
+        controle.percentual = Math.max(0, Math.min(100, Number(byId("controlePercentual").value || 0)));
+        controle.status = byId("controleStatus").value;
+        controle.resumo = byId("controleResumo").value;
+        controle.atualizadoEm = new Date().toLocaleString("pt-BR");
+        controle.alocados = Array.from(document.querySelectorAll("[data-alocado]:checked")).map(input => input.dataset.alocado);
+        obra.status = controle.status;
+        save();
+        renderAll();
+      });
+
+      byId("controleGastoForm").addEventListener("submit", e => {
+        e.preventDefault();
+        const obraId = selectedObraControleId();
+        if (!obraId) return;
+        const arquivo = byId("controleNfeArquivo").files[0];
+        getControle(obraId).gastos.push({
+          id: crypto.randomUUID(),
+          fornecedor: byId("controleFornecedor").value,
+          data: byId("controleDataCompra").value,
+          descricao: byId("controleDescricaoCompra").value,
+          valor: Number(byId("controleValorCompra").value || 0),
+          arquivo: arquivo ? arquivo.name : "",
+          lancadoEm: new Date().toLocaleString("pt-BR")
+        });
+        byId("controleGastoForm").reset();
+        save();
+        renderAll();
+      });
+
+      byId("controleProjetoForm").addEventListener("submit", e => {
+        e.preventDefault();
+        const obraId = selectedObraControleId();
+        const arquivo = byId("controleProjetoArquivo").files[0];
+        if (!obraId || !arquivo) {
+          alert("Selecione um PDF de projeto.");
+          return;
+        }
+        getControle(obraId).projetos.push({
+          id: crypto.randomUUID(),
+          tipo: byId("controleProjetoTipo").value,
+          arquivo: arquivo.name,
+          data: new Date().toLocaleDateString("pt-BR")
+        });
+        byId("controleProjetoForm").reset();
+        save();
+        renderAll();
+      });
+
+      byId("controleFotoForm").addEventListener("submit", async e => {
+        e.preventDefault();
+        const obraId = selectedObraControleId();
+        const files = Array.from(byId("controleFotoArquivos").files || []);
+        if (!obraId || !files.length) {
+          alert("Selecione uma ou mais fotos.");
+          return;
+        }
+        const controle = getControle(obraId);
+        for (const file of files) {
+          const url = await readFileAsDataUrl(file);
+          controle.fotos.push({
+            id: crypto.randomUUID(),
+            legenda: byId("controleFotoLegenda").value,
+            data: byId("controleFotoData").value || new Date().toLocaleDateString("pt-BR"),
+            arquivo: file.name,
+            url
+          });
+        }
+        byId("controleFotoForm").reset();
+        save();
+        renderAll();
+      });
+
+      byId("clienteLoginForm").addEventListener("submit", e => {
+        e.preventDefault();
+        const usuario = byId("clienteUsuario").value.trim();
+        const senha = byId("clienteSenha").value;
+        const obra = db.obras.find(o => o.clienteUsuario === usuario && o.clienteSenha === senha);
+        if (!obra) {
+          byId("clienteLoginMsg").textContent = "Usuario ou senha do cliente incorretos.";
+          return;
+        }
+        clienteObraLogadaId = obra.id;
+        localStorage.setItem(clienteSessionKey, obra.id);
+        byId("clienteLoginMsg").textContent = "";
+        byId("clienteLoginForm").reset();
+        renderAll();
+      });
+      byId("clienteLogout").addEventListener("click", () => {
+        clienteObraLogadaId = "";
+        localStorage.removeItem(clienteSessionKey);
+        renderAll();
+      });
+
+      function readFileAsDataUrl(file) {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+      }
+
+      window.editColab = id => {
+        const c = db.colaboradores.find(item => item.id === id);
+        if (!c) return;
+        byId("colabId").value = c.id;
+        byId("colabNome").value = c.nome;
+        byId("colabCpf").value = c.cpf;
+        byId("colabTelefone").value = c.telefone;
+        byId("colabContrato").value = c.contrato;
+        byId("colabValor").value = c.valor;
+        byId("colabFuncao").value = c.funcao;
+        document.querySelector('[data-view="admin"]').click();
+      };
+
+      window.editObra = id => {
+        const o = db.obras.find(item => item.id === id);
+        if (!o) return;
+        byId("obraId").value = o.id;
+        byId("obraNome").value = o.nome;
+        byId("obraCliente").value = o.cliente || "";
+        byId("obraEndereco").value = o.endereco || "";
+        byId("obraTipo").value = o.tipo || "Casa terrea";
+        byId("obraStatus").value = o.status || "Em andamento";
+        byId("obraInicio").value = o.inicio || "";
+        byId("obraClienteUsuario").value = o.clienteUsuario || "";
+        byId("obraClienteSenha").value = o.clienteSenha || "";
+        document.querySelector('[data-view="admin"]').click();
+      };
+
+      window.abrirControleObra = id => {
+        showView("controleObra");
+        byId("controleObraSelect").value = id;
+        renderControleObra();
+      };
+
+      window.deleteControleItem = (obraId, type, itemId) => {
+        if (!confirm("Excluir este lancamento?")) return;
+        const controle = getControle(obraId);
+        controle[type] = (controle[type] || []).filter(item => item.id !== itemId);
+        save();
+        renderAll();
+      };
+
+      window.deleteColab = id => {
+        if (!confirm("Excluir este colaborador?")) return;
+        db.colaboradores = db.colaboradores.filter(c => c.id !== id);
+        db.pontos = db.pontos.filter(p => p.colaboradorId !== id);
+        save();
+        renderAll();
+      };
+
+      window.deleteObra = id => {
+        if (!confirm("Excluir esta obra?")) return;
+        db.obras = db.obras.filter(o => o.id !== id);
+        delete db.controles[id];
+        db.pontos = db.pontos.map(p => p.obraId === id ? { ...p, obraId: "", obra: "Obra removida" } : p);
+        if (clienteObraLogadaId === id) {
+          clienteObraLogadaId = "";
+          localStorage.removeItem(clienteSessionKey);
+        }
+        save();
+        renderAll();
+      };
+
+      async function initApp() {
+        await loadOnlineDb();
+        normalizeDb();
+        if (apiDisponivel) save();
+        renderAll();
+        showView(location.hash ? location.hash.slice(1) : "operacao", { skipHash: Boolean(location.hash) });
+      }
+
+      initApp();
+    </script>
+  </body>
+</html>

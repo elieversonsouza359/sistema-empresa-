@@ -1,0 +1,9 @@
+.git
+.agents
+.codex
+tools
+*.zip
+*.pdf
+node_modules
+npm-debug.log
+data/ecorp-operacional.json

@@ -1,0 +1,13 @@
+{
+  "name": "sistema-ecorp-online",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server-online.mjs",
+    "dev": "node server-online.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
