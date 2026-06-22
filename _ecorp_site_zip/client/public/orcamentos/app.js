@@ -652,9 +652,9 @@ function mergeBudgets(existing, incoming) {
 }
 
 function renderServices() {
-  const term = els.searchInput.value.trim().toLowerCase();
+  const term = normalizeSearchText(els.searchInput.value);
   const services = getActiveServices()
-    .filter((service) => `${service.code} ${service.description}`.toLowerCase().includes(term))
+    .filter((service) => getServiceSearchText(service).includes(term))
     .sort(sortServices);
   const visibleServices = services.slice(0, SERVICE_LIST_LIMIT);
 
@@ -667,7 +667,7 @@ function renderServices() {
     const card = els.serviceCardTemplate.content.cloneNode(true);
     card.querySelector(".service-code").textContent = service.code;
     card.querySelector(".service-description").textContent = service.description;
-    card.querySelector(".service-meta").textContent = `${getTypeLabel(service)} | ${service.unit} | ${formatMoney(service.price)}`;
+    card.querySelector(".service-meta").textContent = `${getTypeLabel(service)} | ${service.unit} | ${formatMoney(getServiceBudgetPrice(service))}`;
     card.querySelector("button").addEventListener("click", () => removeService(service.code));
     els.serviceList.append(card);
   });
@@ -755,7 +755,7 @@ function renderBudgetSuggestions() {
     button.innerHTML = `
       <strong>${escapeHtml(service.code)}</strong>
       <span>${escapeHtml(service.description)}</span>
-      <em>${escapeHtml(getTypeLabel(service))} | ${escapeHtml(service.unit)} | ${formatMoney(service.price)}</em>
+      <em>${escapeHtml(getTypeLabel(service))} | ${escapeHtml(service.unit)} | ${formatMoney(getServiceBudgetPrice(service))}</em>
     `;
     button.addEventListener("click", () => selectBudgetService(service));
     els.budgetSuggestions.append(button);
@@ -789,7 +789,7 @@ function selectBudgetService(service) {
 
   els.selectedServiceCode.value = service.code;
   els.budgetServiceSearch.value = `${service.code} - ${service.description}`;
-  els.selectedServicePreview.textContent = `${getTypeLabel(service)} | ${service.unit} | ${formatMoney(service.price)}`;
+  els.selectedServicePreview.textContent = `${getTypeLabel(service)} | ${service.unit} | ${formatMoney(getServiceBudgetPrice(service))}`;
   els.budgetSuggestions.classList.remove("is-open");
   els.quantityInput.focus();
 }
@@ -1880,7 +1880,7 @@ function addSelectedProjectEstimatesToBudget({ scrollToBudget }) {
       code: estimate.service.code,
       description: `${estimate.service.description} (${estimate.label} - levantamento do projeto)`,
       unit: estimate.service.unit,
-      price: estimate.service.price,
+      price: getServiceBudgetPrice(estimate.service),
       type: estimate.service.type,
       source: estimate.service.source,
       costScope: state.budget.costScope || "labor_material",
@@ -1921,7 +1921,7 @@ function addBudgetItem() {
     code: service.code,
     description: service.description,
     unit: service.unit,
-    price: service.price,
+    price: getServiceBudgetPrice(service),
     type: service.type,
     source: service.source,
     costScope: state.budget.costScope || "labor_material",
@@ -2154,7 +2154,114 @@ function getBaseServices() {
     ...(Array.isArray(sinapiServices) && sinapiServices.length ? sinapiServices : sampleServices),
     ...(Array.isArray(cdhuServices) && cdhuServices.length ? cdhuServices : [])
   ];
-  return baseServices;
+  return baseServices.map(normalizeServiceRecord);
+}
+
+function normalizeServiceRecord(service) {
+  const code = cleanServiceText(service.code || service.codigo || "");
+  const description = cleanServiceText(service.description || service.descricao || "");
+  const unit = cleanServiceText(service.unit || service.unidade || "");
+  const price = firstPositiveNumber(
+    service.price,
+    service.preco,
+    service.preco_median,
+    service.custo_total,
+    service.custoTotal
+  );
+  const laborPrice = firstPositiveNumber(
+    service.laborPrice,
+    service.custo_mao_obra,
+    service.custoMaoObra,
+    service.mao_obra,
+    service.maoObra
+  );
+  const materialPrice = firstPositiveNumber(service.materialPrice, service.custo_material, service.custoMaterial);
+  const equipmentPrice = firstPositiveNumber(service.equipmentPrice, service.custo_equipamento, service.custoEquipamento);
+
+  return {
+    ...service,
+    code,
+    description,
+    unit,
+    price,
+    laborPrice,
+    materialPrice,
+    equipmentPrice,
+    type: service.type || service.tipo || "CUSTOM",
+    source: service.source || service.fonte || "CUSTOM",
+    searchText: normalizeSearchText(`${code} ${description}`)
+  };
+}
+
+function firstPositiveNumber(...values) {
+  for (const value of values) {
+    const number = toNumber(value);
+    if (number > 0) return number;
+  }
+  return 0;
+}
+
+function cleanServiceText(value) {
+  return repairMojibake(String(value ?? ""))
+    .replace(/\s+/g, " ")
+    .replace(/\s+([,.;:])/g, "$1")
+    .trim();
+}
+
+function repairMojibake(value) {
+  let text = String(value ?? "");
+  for (let i = 0; i < 2 && /(Ã[^\w\s])|Â|â/.test(text); i += 1) {
+    const fixed = decodeLatin1Utf8(text);
+    if (!fixed || fixed === text) break;
+    text = fixed;
+  }
+  return text
+    .replace(/�/g, "")
+    .replace(/[“”]/g, "\"")
+    .replace(/[‘’]/g, "'");
+}
+
+function decodeLatin1Utf8(value) {
+  try {
+    const bytes = Uint8Array.from(String(value), (char) => windows1252Byte(char));
+    return new TextDecoder("utf-8", { fatal: false }).decode(bytes);
+  } catch {
+    return value;
+  }
+}
+
+function windows1252Byte(char) {
+  const code = char.charCodeAt(0);
+  const map = {
+    0x20AC: 0x80,
+    0x201A: 0x82,
+    0x0192: 0x83,
+    0x201E: 0x84,
+    0x2026: 0x85,
+    0x2020: 0x86,
+    0x2021: 0x87,
+    0x02C6: 0x88,
+    0x2030: 0x89,
+    0x0160: 0x8A,
+    0x2039: 0x8B,
+    0x0152: 0x8C,
+    0x017D: 0x8E,
+    0x2018: 0x91,
+    0x2019: 0x92,
+    0x201C: 0x93,
+    0x201D: 0x94,
+    0x2022: 0x95,
+    0x2013: 0x96,
+    0x2014: 0x97,
+    0x02DC: 0x98,
+    0x2122: 0x99,
+    0x0161: 0x9A,
+    0x203A: 0x9B,
+    0x0153: 0x9C,
+    0x017E: 0x9E,
+    0x0178: 0x9F
+  };
+  return map[code] ?? (code & 255);
 }
 
 function isSavedCustomService(service) {
@@ -2186,8 +2293,19 @@ function getActiveServices({ includeCustom = true } = {}) {
   return baseServices;
 }
 
+function getServiceBudgetPrice(service) {
+  if (state.budget?.costScope === "labor_only" && service.laborPrice > 0) {
+    return service.laborPrice;
+  }
+  return toNumber(service.price);
+}
+
+function getServiceSearchText(service) {
+  return service.searchText || normalizeSearchText(`${service.code} ${service.description}`);
+}
+
 function isLaborService(service) {
-  const text = normalizeSearchText(`${service.description} ${service.type || ""}`);
+  const text = normalizeSearchText(`${getServiceSearchText(service)} ${service.type || ""}`);
   return [
     "mao de obra",
     "pedreiro",
