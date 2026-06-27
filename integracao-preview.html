@@ -68,9 +68,13 @@
       .admin-row { align-items: start; border: 1px solid var(--line); border-radius: 8px; display: grid; gap: 12px; grid-template-columns: minmax(180px, 1.4fr) repeat(3, minmax(110px, 1fr)) auto; padding: 12px; }
       .admin-row + .admin-row { margin-top: 0; }
       .admin-row strong { display: block; line-height: 1.2; }
-      .admin-row .label { color: var(--muted); display: block; font-size: 0.78rem; font-weight: 700; margin-bottom: 3px; text-transform: uppercase; }
+      .label, .admin-row .label { color: var(--muted); display: block; font-size: 0.78rem; font-weight: 700; margin-bottom: 3px; text-transform: uppercase; }
       .row-actions { align-items: stretch; display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; min-width: 190px; }
       .row-actions button { padding: 8px 10px; }
+      .checks { align-items: start; display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .checks label { align-items: center; display: flex; gap: 8px; font-weight: 700; }
+      .checks input { width: auto; }
+      .access-menu { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
       #ecorpPrintArea { display: none; }
       @media print {
         body { background: #fff; }
@@ -98,6 +102,7 @@
       }
       @media (max-width: 560px) {
         nav, .grid.cols-3, .grid.cols-2 { grid-template-columns: 1fr; }
+        .checks { grid-template-columns: 1fr; }
         .admin-row { grid-template-columns: 1fr; }
       }
     </style>
@@ -182,6 +187,11 @@
             <label>Observacao<input id="pontoObs" placeholder="Opcional" /></label>
             <button class="primary" type="submit">Registrar ponto agora</button>
           </form>
+          <div class="card" style="margin-top:14px">
+            <h3>Acessos liberados</h3>
+            <p class="muted">Atalhos disponiveis conforme permissao definida pelo administrador.</p>
+            <div id="pontoAcessos" class="access-menu"></div>
+          </div>
         </div>
         <div class="card" style="margin-top:14px">
           <h3>Ultimos registros</h3>
@@ -276,6 +286,16 @@
             <label>Tipo de contrato<select id="colabContrato"><option>Mensalista</option><option>Diarista</option><option>Horista</option><option>Empreitada</option></select></label>
             <label>Valor base<input id="colabValor" type="number" step="0.01" /></label>
             <label>Funcao<input id="colabFuncao" value="Ajudante" /></label>
+            <div style="grid-column:1 / -1">
+              <span class="label">Acessos do funcionario</span>
+              <div class="checks">
+                <label><input id="colabPermOperacao" type="checkbox" /> Operacao</label>
+                <label><input id="colabPermControleObra" type="checkbox" /> Controle de Obra</label>
+                <label><input id="colabPermOrcamentos" type="checkbox" /> Orcamentos</label>
+                <label><input id="colabPermMateriais" type="checkbox" /> Materiais</label>
+              </div>
+              <p class="muted" style="margin-top:6px">Registro de ponto fica liberado para todo funcionario cadastrado.</p>
+            </div>
             <button class="primary" type="submit">Salvar funcionario</button>
             <button type="button" id="limparColab">Limpar formulario</button>
           </form>
@@ -322,7 +342,7 @@
         </div>
         <div id="controleBloqueado" class="card admin-lock hidden">
           <h3>Acesso restrito</h3>
-          <p class="muted">Esta area e liberada para o ADM ou funcionario com funcao Administrativo.</p>
+          <p class="muted">Esta area e liberada para o ADM ou funcionario com permissao marcada no cadastro.</p>
           <button class="primary" type="button" onclick="showView('admin')">Entrar como ADM</button>
         </div>
         <div id="controlePanel" class="grid hidden">
@@ -522,6 +542,12 @@
       const apiDisponivel = location.protocol === "http:" || location.protocol === "https:";
       const senhaPadraoColaborador = "123456";
       const defaultBdiPercent = 20;
+      const permissionConfig = [
+        { key: "operacao", label: "Operacao", view: "operacao" },
+        { key: "controleObra", label: "Controle de Obra", view: "controleObra" },
+        { key: "orcamentos", label: "Orcamentos", view: "orcamentos" },
+        { key: "materiais", label: "Materiais", view: "materiais" }
+      ];
       const adminCredentials = { user: "ADM", pass: "ADM6347" };
       const ECB_PRODUCTIVITY_MASTER = [
         { code: "ECB-010101", discipline: "Servicos Preliminares", name: "Mobilizacao inicial da obra", unit: "dia", qty: 1, crew: "1 pedreiro + 1 servente", productivity: 1, source: "Premissa E-Corp" },
@@ -627,6 +653,16 @@
       const byId = id => document.getElementById(id);
       const escapeHtml = value => String(value || "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
 
+      function defaultPermissionsForColab(c = {}) {
+        const isAdminRole = normalizeText(c.funcao).includes("administrativo");
+        return isAdminRole ? permissionConfig.map(item => item.key) : [];
+      }
+
+      function normalizePermissions(c = {}) {
+        const permissions = Array.isArray(c.permissoes) ? c.permissoes : defaultPermissionsForColab(c);
+        return permissionConfig.map(item => item.key).filter(key => permissions.includes(key));
+      }
+
       function normalizeDb() {
         db = db || structuredClone(seed);
         db.colaboradores = db.colaboradores || [];
@@ -637,7 +673,8 @@
           ...c,
           cpfLogin: normalizeCpf(c.cpf),
           senha: c.senha || senhaPadraoColaborador,
-          primeiroAcesso: typeof c.primeiroAcesso === "boolean" ? c.primeiroAcesso : !c.senha
+          primeiroAcesso: typeof c.primeiroAcesso === "boolean" ? c.primeiroAcesso : !c.senha,
+          permissoes: normalizePermissions(c)
         }));
       }
 
@@ -674,8 +711,23 @@
         return Boolean(c && normalizeText(c.funcao).includes("administrativo") && !c.primeiroAcesso);
       }
 
+      function hasColabPermission(permission) {
+        const c = getColaboradorLogado();
+        if (!c || c.primeiroAcesso) return false;
+        return normalizePermissions(c).includes(permission);
+      }
+
+      function canAccessRestrictedView(view) {
+        if (adminAutenticado) return true;
+        if (view === "operacao") return hasColabPermission("operacao");
+        if (view === "controleObra") return hasColabPermission("controleObra");
+        if (view === "orcamentos") return hasColabPermission("orcamentos");
+        if (view === "materiais") return hasColabPermission("materiais");
+        return true;
+      }
+
       function canAccessControleObra() {
-        return adminAutenticado || isColaboradorAdministrativo();
+        return canAccessRestrictedView("controleObra");
       }
 
       function normalizeText(value) {
@@ -1135,12 +1187,10 @@
 
       function showView(view, options = {}) {
         const adminSubViews = ["operacao", "controleObra", "orcamentos"];
-        if (view === "operacao" && !adminAutenticado) {
-          byId("adminLoginMsg").textContent = "A area Operacao e restrita ao administrador. Entre com ADM / ADM6347.";
-          return showView("admin", { force: true });
-        }
-        if (view === "controleObra" && !canAccessControleObra()) {
-          renderControleObra();
+        const restrictedViews = ["operacao", "controleObra", "orcamentos", "materiais"];
+        if (restrictedViews.includes(view) && !canAccessRestrictedView(view)) {
+          alert("Acesso nao liberado para este usuario. Entre com um funcionario autorizado ou com o ADM.");
+          return showView(adminAutenticado ? "admin" : "ponto", { force: true });
         }
 
         const targetButton = document.querySelector(`[data-view="${view}"]`);
@@ -1207,18 +1257,21 @@
       }
 
       function renderColabs() {
-        const rows = db.colaboradores.map(c => `
+        const rows = db.colaboradores.map(c => {
+          const accessList = normalizePermissions(c).map(key => permissionConfig.find(item => item.key === key)?.label).filter(Boolean);
+          return `
           <div class="admin-row">
             <div><span class="label">Funcionario</span><strong>${escapeHtml(c.nome)}</strong><span class="muted">${escapeHtml(c.funcao || "-")}</span></div>
             <div><span class="label">CPF/Login</span>${escapeHtml(c.cpf)}<br><span class="muted">Usuario: CPF</span></div>
             <div><span class="label">Telefone</span>${escapeHtml(c.telefone || "-")}</div>
-            <div><span class="label">Contrato</span>${escapeHtml(c.contrato || "-")}<br><span class="muted">${money(c.valor)}</span><br><span class="pill">${c.primeiroAcesso ? "Senha padrao" : "Senha cadastrada"}</span></div>
+            <div><span class="label">Contrato</span>${escapeHtml(c.contrato || "-")}<br><span class="muted">${money(c.valor)}</span><br><span class="pill">${c.primeiroAcesso ? "Senha padrao" : "Senha cadastrada"}</span><br><span class="muted">Acessos: ${escapeHtml(accessList.join(", ") || "Somente ponto")}</span></div>
             <div class="row-actions">
               <button type="button" onclick="editColab('${c.id}')">Editar</button>
               <button type="button" onclick="resetColabSenha('${c.id}')">Resetar senha</button>
               <button class="danger" type="button" onclick="deleteColab('${c.id}')">Excluir</button>
             </div>
-          </div>`).join("");
+          </div>`;
+        }).join("");
         byId("colabsTabela").innerHTML = rows ? `<div class="admin-list">${rows}</div>` : `<div class="empty">Nenhum funcionario cadastrado.</div>`;
       }
 
@@ -1394,6 +1447,22 @@
         }
       }
 
+      function renderColabAccessMenu() {
+        const c = getColaboradorLogado();
+        const menu = byId("pontoAcessos");
+        if (!menu) return;
+        if (!c || c.primeiroAcesso) {
+          menu.innerHTML = `<div class="empty">Entre com CPF e senha para ver seus acessos.</div>`;
+          return;
+        }
+        const permissions = normalizePermissions(c);
+        const buttons = permissionConfig
+          .filter(item => permissions.includes(item.key))
+          .map(item => `<button type="button" onclick="showView('${item.view}')">${item.label}</button>`)
+          .join("");
+        menu.innerHTML = buttons || `<div class="empty">Nenhum acesso extra liberado. Seu acesso atual e apenas registro de ponto.</div>`;
+      }
+
       function renderAll() {
         renderSelects();
         renderStats();
@@ -1405,6 +1474,7 @@
         renderClienteArea();
         renderAdminAccess();
         renderColaboradorAccess();
+        renderColabAccessMenu();
       }
 
       byId("pontoForm").addEventListener("submit", e => {
@@ -1552,6 +1622,7 @@
           contrato: byId("colabContrato").value,
           valor: Number(byId("colabValor").value || 0),
           funcao: byId("colabFuncao").value,
+          permissoes: permissionConfig.filter(item => byId(`colabPerm${item.key.charAt(0).toUpperCase()}${item.key.slice(1)}`).checked).map(item => item.key),
           senha: existing?.senha || senhaPadraoColaborador,
           primeiroAcesso: typeof existing?.primeiroAcesso === "boolean" ? existing.primeiroAcesso : true
         };
@@ -1844,6 +1915,10 @@
         byId("colabContrato").value = c.contrato;
         byId("colabValor").value = c.valor;
         byId("colabFuncao").value = c.funcao;
+        const permissions = normalizePermissions(c);
+        permissionConfig.forEach(item => {
+          byId(`colabPerm${item.key.charAt(0).toUpperCase()}${item.key.slice(1)}`).checked = permissions.includes(item.key);
+        });
         document.querySelector('[data-view="admin"]').click();
         byId("colabForm").scrollIntoView({ behavior: "smooth", block: "start" });
       };
