@@ -690,8 +690,9 @@
       }
 
       function referenceUnitValueForActivity(item) {
-        const quantity = Math.max(1, Number(item.quantity || item.qty || 1));
-        const fallback = laborValueForActivity(item) / quantity;
+        const baseActivity = ECB_PRODUCTIVITY_MASTER.find(activity => activity.code === item.code);
+        const quantity = Math.max(1, Number(baseActivity?.qty || item.qty || item.quantity || 1));
+        const fallback = laborValueForActivity({ ...item, quantity, qty: quantity }) / quantity;
         return {
           unitValue: fallback,
           source: "Referencia ECB",
@@ -713,10 +714,12 @@
         const baseReference = referenceUnitValueForActivity(item);
         const candidateUnitValue = Number(item.referenceUnitValue || item.laborUnitValue || 0);
         const candidateSource = String(item.referenceSource || "");
+        const candidateSourceNormalized = candidateSource.toLowerCase();
         const candidateLooksSafe = candidateUnitValue > 0
           && candidateUnitValue <= baseReference.unitValue * 8
-          && !candidateSource.includes("SINAPI")
-          && !candidateSource.includes("CDHU");
+          && candidateUnitValue < 10000
+          && !candidateSourceNormalized.includes("sinapi")
+          && !candidateSourceNormalized.includes("cdhu");
         const reference = candidateLooksSafe
           ? {
               unitValue: candidateUnitValue,
