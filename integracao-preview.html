@@ -64,6 +64,24 @@
       .hidden { display: none !important; }
       .admin-lock { margin: 0 auto; max-width: 520px; }
       .admin-status { align-items: center; display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
+      #ecorpPrintArea { display: none; }
+      @media print {
+        body { background: #fff; }
+        body > *:not(#ecorpPrintArea) { display: none !important; }
+        #ecorpPrintArea { color: #1b241d; display: block !important; font-family: Arial, Helvetica, sans-serif; padding: 0; }
+        #ecorpPrintArea h1, #ecorpPrintArea h2, #ecorpPrintArea h3, #ecorpPrintArea p { margin: 0; }
+        #ecorpPrintArea .print-head { border-bottom: 2px solid #2d6a4f; margin-bottom: 14px; padding-bottom: 10px; }
+        #ecorpPrintArea .print-title { font-size: 22px; margin-top: 4px; }
+        #ecorpPrintArea .print-muted { color: #667066; font-size: 12px; }
+        #ecorpPrintArea .print-stats { display: grid; gap: 8px; grid-template-columns: repeat(3, 1fr); margin: 14px 0; }
+        #ecorpPrintArea .print-stat { border: 1px solid #dbe4d7; border-radius: 6px; padding: 8px; }
+        #ecorpPrintArea .print-stat strong { display: block; font-size: 18px; margin-top: 4px; }
+        #ecorpPrintArea table { border-collapse: collapse; font-size: 9px; width: 100%; }
+        #ecorpPrintArea th, #ecorpPrintArea td { border: 1px solid #dbe4d7; padding: 4px; text-align: left; vertical-align: top; }
+        #ecorpPrintArea th { background: #edf3ea !important; font-weight: 700; }
+        #ecorpPrintArea small { color: #667066; font-size: 8px; }
+        @page { margin: 10mm; size: A4 landscape; }
+      }
       @media (max-width: 850px) {
         .bar, .hero { align-items: stretch; display: grid; grid-template-columns: 1fr; }
         nav, .grid.cols-3, .grid.cols-2 { grid-template-columns: 1fr 1fr; display: grid; }
@@ -946,45 +964,32 @@
         URL.revokeObjectURL(url);
       }
 
-      function printHtmlDocument(html) {
-        const frame = document.createElement("iframe");
-        frame.title = "Exportacao PDF";
-        frame.style.position = "fixed";
-        frame.style.right = "0";
-        frame.style.bottom = "0";
-        frame.style.width = "0";
-        frame.style.height = "0";
-        frame.style.border = "0";
-        frame.style.opacity = "0";
-        document.body.append(frame);
+      function printCurrentPageHtml(html) {
+        const previous = document.getElementById("ecorpPrintArea");
+        if (previous) previous.remove();
+        const area = document.createElement("section");
+        area.id = "ecorpPrintArea";
+        area.innerHTML = html;
+        document.body.append(area);
 
-        const frameWindow = frame.contentWindow;
-        const frameDocument = frame.contentDocument || frameWindow.document;
-        frameDocument.open();
-        frameDocument.write(html);
-        frameDocument.close();
-
-        let didPrint = false;
-        const cleanup = () => setTimeout(() => frame.remove(), 1000);
-        const runPrint = () => {
-          if (didPrint) return;
-          didPrint = true;
-          try {
-            frameWindow.focus();
-            frameWindow.print();
-            cleanup();
-          } catch (error) {
-            frame.remove();
-            alert("Nao foi possivel abrir a impressao. Use Ctrl+P e escolha 'Salvar como PDF'.");
-          }
+        const cleanup = () => {
+          window.removeEventListener("afterprint", cleanup);
+          setTimeout(() => area.remove(), 500);
         };
-        frame.onload = () => setTimeout(runPrint, 250);
-        setTimeout(runPrint, 700);
+        window.addEventListener("afterprint", cleanup);
+        try {
+          window.focus();
+          window.print();
+        } catch (error) {
+          cleanup();
+          alert("Nao foi possivel abrir a impressao. Aperte Ctrl+P e escolha 'Salvar como PDF'.");
+        }
       }
 
       function exportCronogramaPdf() {
         const obraId = selectedObraControleId();
         const obra = db.obras.find(o => o.id === obraId);
+        if (obraId) saveEngineeringPlanFromInputs(obraId);
         const rows = cronogramaRows(obraId);
         if (!rows.length) {
           alert("Gere o plano da obra antes de exportar.");
@@ -996,53 +1001,35 @@
           <tr>
             <td>${row.etapa}</td>
             <td><strong>${escapeHtml(row.atividade)}</strong><br><small>${escapeHtml(row.codigo)} - ${escapeHtml(row.disciplina)}</small></td>
-            <td>${formatNumber(row.quantidade)} ${escapeHtml(row.unidade)}</td>
+            <td>${formatNumber(row.quantidade)}<br>${escapeHtml(row.unidade)}</td>
+            <td>${escapeHtml(row.equipe)}<br><small>${formatNumber(row.produtividadeDia)} ${escapeHtml(row.unidade)}/dia</small></td>
             <td>${row.diasPrevistos}</td>
+            <td>${formatNumber(row.medido)}<br>${escapeHtml(row.unidade)}</td>
             <td>${formatNumber(row.percentual)}%</td>
+            <td>${money(row.valorUnitarioMo)} / ${escapeHtml(row.unidade)}<br><small>Referencia ECB ${escapeHtml(row.codigo)}</small><br><small>Total: ${money(row.valorMoPrevisto)} | Medido: ${money(row.valorMoMedido)}</small></td>
+            <td>${money(row.valorPago)}<br><small>Saldo: ${money(row.saldo)}</small></td>
             <td>${escapeHtml(row.status)}</td>
-            <td>${money(row.valorMoPrevisto)}</td>
-            <td>${money(row.valorMoMedido)}</td>
-            <td>${money(row.saldo)}</td>
           </tr>`).join("");
-        const html = `<!doctype html>
-          <html lang="pt-BR">
-            <head>
-              <meta charset="utf-8" />
-              <title>Cronograma - ${escapeHtml(obra?.nome || "Obra")}</title>
-              <style>
-                body { color: #1b241d; font-family: Arial, Helvetica, sans-serif; margin: 28px; }
-                h1, h2, p { margin: 0; }
-                h1 { font-size: 24px; }
-                .muted { color: #667066; }
-                .head { border-bottom: 2px solid #2d6a4f; margin-bottom: 18px; padding-bottom: 12px; }
-                .stats { display: grid; gap: 8px; grid-template-columns: repeat(4, 1fr); margin: 16px 0; }
-                .stat { border: 1px solid #dbe4d7; border-radius: 8px; padding: 10px; }
-                .stat strong { display: block; font-size: 18px; margin-top: 4px; }
-                table { border-collapse: collapse; font-size: 11px; width: 100%; }
-                th, td { border: 1px solid #dbe4d7; padding: 6px; text-align: left; vertical-align: top; }
-                th { background: #edf3ea; }
-                @media print { body { margin: 16px; } }
-              </style>
-            </head>
-            <body>
-              <div class="head">
-                <p class="muted">E-CORP SERVICOS LTDA</p>
-                <h1>Cronograma da obra</h1>
+        const html = `
+              <div class="print-head">
+                <p class="print-muted">E-CORP SERVICOS LTDA</p>
+                <h1 class="print-title">Plano de engenharia ECB</h1>
                 <p><strong>${escapeHtml(obra?.nome || "-")}</strong> | Cliente: ${escapeHtml(obra?.cliente || "-")} | Tipo: ${escapeHtml(obra?.tipo || "-")}</p>
+                <p class="print-muted">Etapas, produtividade, prazo previsto, medicao fisica e financeiro de mao de obra por atividade.</p>
               </div>
-              <div class="stats">
-                <div class="stat"><span class="muted">Prazo planejado</span><strong>${stats.plannedDays} dias</strong></div>
-                <div class="stat"><span class="muted">Avanco tecnico</span><strong>${stats.average}%</strong></div>
-                <div class="stat"><span class="muted">MO prevista</span><strong>${money(finance.planned)}</strong></div>
-                <div class="stat"><span class="muted">MO medida</span><strong>${money(finance.measured)}</strong></div>
+              <div class="print-stats">
+                <div class="print-stat"><span class="print-muted">Prazo planejado</span><strong>${stats.plannedDays} dias</strong></div>
+                <div class="print-stat"><span class="print-muted">Avanco tecnico</span><strong>${stats.average}%</strong></div>
+                <div class="print-stat"><span class="print-muted">Etapas concluidas</span><strong>${stats.completed}/${stats.total}</strong></div>
+                <div class="print-stat"><span class="print-muted">MO prevista</span><strong>${money(finance.planned)}</strong></div>
+                <div class="print-stat"><span class="print-muted">MO medida</span><strong>${money(finance.measured)}</strong></div>
+                <div class="print-stat"><span class="print-muted">MO paga / saldo</span><strong>${money(finance.paid)} / ${money(finance.balance)}</strong></div>
               </div>
               <table>
-                <thead><tr><th>#</th><th>Atividade</th><th>Qtd.</th><th>Dias</th><th>%</th><th>Status</th><th>MO prevista</th><th>MO medida</th><th>Saldo</th></tr></thead>
+                <thead><tr><th>#</th><th>Atividade</th><th>Qtd.</th><th>Equipe/produtividade</th><th>Prazo</th><th>Medido</th><th>%</th><th>MO unit. / total</th><th>Pago</th><th>Status</th></tr></thead>
                 <tbody>${tableRows}</tbody>
-              </table>
-            </body>
-          </html>`;
-        printHtmlDocument(html);
+              </table>`;
+        printCurrentPageHtml(html);
       }
 
       function getClienteObraLogada() {
