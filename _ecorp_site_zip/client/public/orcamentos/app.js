@@ -1926,6 +1926,7 @@ function findBestServiceForRule(rule) {
   const preferredUnit = getPreferredEstimateUnit(rule);
   const candidates = getActiveServices({ includeCustom: false })
     .filter((service) => service.type === "COMPOSICAO" || service.type === "COMPOSICAO_CDHU" || service.source === SINAPI_SOURCE || service.source === CDHU_SOURCE || service.type === "EXEMPLO")
+    .filter((service) => isCompatibleEstimateUnit(service.unit, preferredUnit))
     .map((service) => ({ service, score: scoreServiceForRule(service, rule, preferredUnit) }))
     .filter((item) => item.score > 0)
     .sort((a, b) => b.score - a.score || a.service.code.localeCompare(b.service.code));
@@ -2029,17 +2030,15 @@ function addProjectEstimatesToBudget() {
 }
 
 function generateBudgetFromTakeoff() {
-  if (!projectEstimates.length) {
-    calculateProjectTakeoff();
-  }
+  calculateProjectTakeoff();
 
-  const added = addSelectedProjectEstimatesToBudget({ scrollToBudget: true });
+  const added = addSelectedProjectEstimatesToBudget({ scrollToBudget: true, replaceTakeoffItems: true });
   if (added > 0) {
-    setProjectStatus(`${added} item(ns) gerado(s) no orcamento automatico. Confira a tabela e salve no banco.`);
+    setProjectStatus(`${added} item(ns) gerado(s) no orcamento automatico com base no quantitativo atual. Confira a tabela e salve no banco.`);
   }
 }
 
-function addSelectedProjectEstimatesToBudget({ scrollToBudget }) {
+function addSelectedProjectEstimatesToBudget({ scrollToBudget, replaceTakeoffItems = false }) {
   const selected = projectEstimates.filter((estimate) => {
     const checkbox = document.querySelector(`[data-estimate-check="${estimate.id}"]`);
     return checkbox?.checked && estimate.service;
@@ -2050,6 +2049,11 @@ function addSelectedProjectEstimatesToBudget({ scrollToBudget }) {
     return 0;
   }
 
+  if (replaceTakeoffItems) {
+    state.budget.items = state.budget.items.filter((item) => item.origin !== "takeoff" && !String(item.description || "").includes("levantamento do projeto"));
+  }
+
+  let added = 0;
   selected.forEach((estimate) => {
     const quantityInput = document.querySelector(`[data-estimate-quantity="${estimate.id}"]`);
     const quantity = toNumber(quantityInput?.value || estimate.quantity);
@@ -2064,20 +2068,24 @@ function addSelectedProjectEstimatesToBudget({ scrollToBudget }) {
       type: estimate.service.type,
       source: estimate.service.source,
       costScope: state.budget.costScope || "labor_material",
-      quantity
+      quantity,
+      origin: "takeoff",
+      takeoffRuleKey: estimate.ruleKey,
+      takeoffLabel: estimate.label
     });
+    added += 1;
   });
 
   saveState();
   renderBudgetItems();
   renderSummary();
-  setProjectStatus(`${selected.length} item(ns) adicionado(s) ao orcamento. Confira as quantidades e salve no banco.`);
+  setProjectStatus(`${added} item(ns) adicionado(s) ao orcamento. Confira as quantidades e salve no banco.`);
 
   if (scrollToBudget) {
     els.budgetItems.closest(".table-wrap")?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
-  return selected.length;
+  return added;
 }
 
 function setProjectStatus(message) {
@@ -2575,6 +2583,15 @@ function normalizeUnit(value) {
     .replace(/m\s*[²2]/g, "m2")
     .replace(/m\s*[³3]/g, "m3")
     .replace("unidade", "un");
+}
+
+function isCompatibleEstimateUnit(serviceUnit, preferredUnit) {
+  const service = normalizeUnit(serviceUnit);
+  const preferred = normalizeUnit(preferredUnit);
+  if (!service || !preferred) return false;
+  if (service === preferred) return true;
+  if (preferred === "un" && ["un", "und", "unid"].includes(service)) return true;
+  return false;
 }
 
 function getPreferredEstimateUnit(rule) {
