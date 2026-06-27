@@ -329,7 +329,11 @@
             </div>
             <div id="controlePlanoResumo" class="grid cols-3" style="margin-top:12px"></div>
             <div id="controlePlanoLista" style="margin-top:12px"></div>
-            <button id="salvarPlanoEngenharia" type="button" style="margin-top:12px">Salvar medicoes do plano</button>
+            <div class="actions" style="margin-top:12px">
+              <button id="salvarPlanoEngenharia" type="button">Salvar medicoes do plano</button>
+              <button id="exportarCronogramaPlanilha" type="button">Exportar planilha</button>
+              <button id="exportarCronogramaPdf" type="button">Exportar PDF</button>
+            </div>
           </div>
 
           <div class="grid cols-2">
@@ -865,6 +869,154 @@
         return byId("controleObraSelect")?.value || db.obras[0]?.id || "";
       }
 
+      function cronogramaRows(obraId) {
+        const obra = db.obras.find(o => o.id === obraId);
+        const controle = getControle(obraId);
+        return (controle.engenhariaPlano || []).map((item, index) => {
+          const planned = Number(item.laborValue || 0);
+          const measuredValue = planned * Math.max(0, Math.min(100, Number(item.percent || 0))) / 100;
+          const paid = Number(item.paidValue || 0);
+          return {
+            etapa: index + 1,
+            obra: obra?.nome || "",
+            cliente: obra?.cliente || "",
+            codigo: item.code || "",
+            disciplina: item.discipline || "",
+            atividade: item.name || "",
+            unidade: item.unit || "",
+            quantidade: Number(item.quantity || 0),
+            equipe: item.crew || "",
+            produtividadeDia: Number(item.productivity || 0),
+            diasPrevistos: planDays(item),
+            medido: Number(item.measured || 0),
+            percentual: Number(item.percent || 0),
+            status: item.status || "",
+            valorUnitarioMo: Number(item.referenceUnitValue || 0),
+            valorMoPrevisto: planned,
+            valorMoMedido: measuredValue,
+            valorPago: paid,
+            saldo: Math.max(0, planned - paid)
+          };
+        });
+      }
+
+      function csvEscape(value) {
+        return `"${String(value ?? "").replace(/"/g, '""')}"`;
+      }
+
+      function exportCronogramaPlanilha() {
+        const obraId = selectedObraControleId();
+        const rows = cronogramaRows(obraId);
+        if (!rows.length) {
+          alert("Gere o plano da obra antes de exportar.");
+          return;
+        }
+        const obra = db.obras.find(o => o.id === obraId);
+        const headers = ["Etapa", "Obra", "Cliente", "Codigo", "Disciplina", "Atividade", "Unidade", "Quantidade", "Equipe", "Produtividade/dia", "Dias previstos", "Medido", "% executado", "Status", "Valor unit. MO", "MO prevista", "MO medida", "Pago", "Saldo"];
+        const lines = rows.map(row => [
+          row.etapa,
+          row.obra,
+          row.cliente,
+          row.codigo,
+          row.disciplina,
+          row.atividade,
+          row.unidade,
+          row.quantidade,
+          row.equipe,
+          row.produtividadeDia,
+          row.diasPrevistos,
+          row.medido,
+          row.percentual,
+          row.status,
+          row.valorUnitarioMo,
+          row.valorMoPrevisto,
+          row.valorMoMedido,
+          row.valorPago,
+          row.saldo
+        ].map(csvEscape).join(";"));
+        const csv = ["sep=;", headers.map(csvEscape).join(";"), ...lines].join("\r\n");
+        const blob = new Blob(["\ufeff" + csv], { type: "text/csv;charset=utf-8" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `cronograma-${normalizeText(obra?.nome || "obra").replace(/\s+/g, "-")}.csv`;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      function exportCronogramaPdf() {
+        const obraId = selectedObraControleId();
+        const obra = db.obras.find(o => o.id === obraId);
+        const rows = cronogramaRows(obraId);
+        if (!rows.length) {
+          alert("Gere o plano da obra antes de exportar.");
+          return;
+        }
+        const stats = planStats(getControle(obraId).engenhariaPlano || []);
+        const finance = planFinancialStats(getControle(obraId).engenhariaPlano || []);
+        const tableRows = rows.map(row => `
+          <tr>
+            <td>${row.etapa}</td>
+            <td><strong>${escapeHtml(row.atividade)}</strong><br><small>${escapeHtml(row.codigo)} - ${escapeHtml(row.disciplina)}</small></td>
+            <td>${formatNumber(row.quantidade)} ${escapeHtml(row.unidade)}</td>
+            <td>${row.diasPrevistos}</td>
+            <td>${formatNumber(row.percentual)}%</td>
+            <td>${escapeHtml(row.status)}</td>
+            <td>${money(row.valorMoPrevisto)}</td>
+            <td>${money(row.valorMoMedido)}</td>
+            <td>${money(row.saldo)}</td>
+          </tr>`).join("");
+        const html = `<!doctype html>
+          <html lang="pt-BR">
+            <head>
+              <meta charset="utf-8" />
+              <title>Cronograma - ${escapeHtml(obra?.nome || "Obra")}</title>
+              <style>
+                body { color: #1b241d; font-family: Arial, Helvetica, sans-serif; margin: 28px; }
+                h1, h2, p { margin: 0; }
+                h1 { font-size: 24px; }
+                .muted { color: #667066; }
+                .head { border-bottom: 2px solid #2d6a4f; margin-bottom: 18px; padding-bottom: 12px; }
+                .stats { display: grid; gap: 8px; grid-template-columns: repeat(4, 1fr); margin: 16px 0; }
+                .stat { border: 1px solid #dbe4d7; border-radius: 8px; padding: 10px; }
+                .stat strong { display: block; font-size: 18px; margin-top: 4px; }
+                table { border-collapse: collapse; font-size: 11px; width: 100%; }
+                th, td { border: 1px solid #dbe4d7; padding: 6px; text-align: left; vertical-align: top; }
+                th { background: #edf3ea; }
+                @media print { body { margin: 16px; } }
+              </style>
+            </head>
+            <body>
+              <div class="head">
+                <p class="muted">E-CORP SERVICOS LTDA</p>
+                <h1>Cronograma da obra</h1>
+                <p><strong>${escapeHtml(obra?.nome || "-")}</strong> | Cliente: ${escapeHtml(obra?.cliente || "-")} | Tipo: ${escapeHtml(obra?.tipo || "-")}</p>
+              </div>
+              <div class="stats">
+                <div class="stat"><span class="muted">Prazo planejado</span><strong>${stats.plannedDays} dias</strong></div>
+                <div class="stat"><span class="muted">Avanco tecnico</span><strong>${stats.average}%</strong></div>
+                <div class="stat"><span class="muted">MO prevista</span><strong>${money(finance.planned)}</strong></div>
+                <div class="stat"><span class="muted">MO medida</span><strong>${money(finance.measured)}</strong></div>
+              </div>
+              <table>
+                <thead><tr><th>#</th><th>Atividade</th><th>Qtd.</th><th>Dias</th><th>%</th><th>Status</th><th>MO prevista</th><th>MO medida</th><th>Saldo</th></tr></thead>
+                <tbody>${tableRows}</tbody>
+              </table>
+              <script>window.onload = () => { window.print(); };<\/script>
+            </body>
+          </html>`;
+        const win = window.open("", "_blank");
+        if (!win) {
+          alert("Permita pop-ups para exportar o PDF.");
+          return;
+        }
+        win.document.open();
+        win.document.write(html);
+        win.document.close();
+      }
+
       function getClienteObraLogada() {
         return db.obras.find(o => o.id === clienteObraLogadaId) || null;
       }
@@ -1380,6 +1532,8 @@
         const obraId = selectedObraControleId();
         if (obraId) saveEngineeringPlanFromInputs(obraId);
       });
+      byId("exportarCronogramaPlanilha").addEventListener("click", exportCronogramaPlanilha);
+      byId("exportarCronogramaPdf").addEventListener("click", exportCronogramaPdf);
       byId("salvarControleObra").addEventListener("click", () => {
         const obraId = selectedObraControleId();
         const obra = db.obras.find(o => o.id === obraId);
