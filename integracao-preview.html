@@ -250,6 +250,13 @@
             <label>Tipo<select id="obraTipo"><option>Casa terrea</option><option>Sobrado</option><option>Barracao</option><option>Reforma</option><option>Fundacao</option><option>Estrutura metalica</option></select></label>
             <label>Status<select id="obraStatus"><option>Em andamento</option><option>Orcamento</option><option>Pausada</option><option>Finalizada</option></select></label>
             <label>Inicio previsto<input id="obraInicio" type="date" /></label>
+            <label>Area terrea (m2)<input id="obraAreaTerrea" min="0" step="0.01" type="number" placeholder="Ex.: 150" /></label>
+            <label>Area pav. superior (m2)<input id="obraAreaSuperior" min="0" step="0.01" type="number" placeholder="Ex.: 80" /></label>
+            <label>Metro linear/perimetro (m)<input id="obraPerimetro" min="0" step="0.01" type="number" placeholder="Ex.: 50" /></label>
+            <label>Pe-direito terreo (m)<input id="obraPeDireito" min="0" step="0.01" type="number" placeholder="Ex.: 2.80" /></label>
+            <label>Pe-direito superior (m)<input id="obraPeDireitoSuperior" min="0" step="0.01" type="number" placeholder="Ex.: 2.80" /></label>
+            <label>Area cobertura (m2)<input id="obraAreaCobertura" min="0" step="0.01" type="number" placeholder="Ex.: 170" /></label>
+            <label>Fundacao<select id="obraFundacao"><option value="baldrame">Baldrame</option><option value="radier">Radier</option><option value="sapata">Sapata</option><option value="sem_estrutural">Sem projeto estrutural</option></select></label>
             <label>Usuario do cliente<input id="obraClienteUsuario" placeholder="Ex.: cliente.casa" /></label>
             <label>Senha do cliente<input id="obraClienteSenha" placeholder="Definida pelo administrador" /></label>
             <button class="primary" type="submit">Salvar obra</button>
@@ -297,6 +304,13 @@
             <label>Endereco<input id="controleObraEndereco" /></label>
             <label>Tipo<select id="controleObraTipo"><option>Casa terrea</option><option>Sobrado</option><option>Barracao</option><option>Reforma</option><option>Fundacao</option><option>Estrutura metalica</option></select></label>
             <label>Inicio previsto<input id="controleObraInicio" type="date" /></label>
+            <label>Area terrea (m2)<input id="controleObraAreaTerrea" min="0" step="0.01" type="number" /></label>
+            <label>Area pav. superior (m2)<input id="controleObraAreaSuperior" min="0" step="0.01" type="number" /></label>
+            <label>Metro linear/perimetro (m)<input id="controleObraPerimetro" min="0" step="0.01" type="number" /></label>
+            <label>Pe-direito terreo (m)<input id="controleObraPeDireito" min="0" step="0.01" type="number" /></label>
+            <label>Pe-direito superior (m)<input id="controleObraPeDireitoSuperior" min="0" step="0.01" type="number" /></label>
+            <label>Area cobertura (m2)<input id="controleObraAreaCobertura" min="0" step="0.01" type="number" /></label>
+            <label>Fundacao<select id="controleObraFundacao"><option value="baldrame">Baldrame</option><option value="radier">Radier</option><option value="sapata">Sapata</option><option value="sem_estrutural">Sem projeto estrutural</option></select></label>
             <label>Usuario do cliente<input id="controleObraClienteUsuario" /></label>
             <label>Senha do cliente<input id="controleObraClienteSenha" /></label>
             <button class="primary" type="submit">Salvar dados da obra</button>
@@ -752,18 +766,69 @@
         }, { planned: 0, measured: 0, paid: 0, balance: 0, overpaid: 0 });
       }
 
+      function getObraMetragem(obra = {}) {
+        const areaTerrea = Number(obra.areaTerrea || 0);
+        const areaSuperior = Number(obra.areaSuperior || 0);
+        const perimetro = Number(obra.perimetro || 0);
+        const peDireito = Number(obra.peDireito || 0) || (obra.tipo === "Barracao" ? 5 : 2.8);
+        const peDireitoSuperior = Number(obra.peDireitoSuperior || 0) || (areaSuperior > 0 ? 2.8 : 0);
+        const areaCobertura = Number(obra.areaCobertura || 0) || (areaTerrea > 0 ? areaTerrea * 1.12 : 0);
+        const totalArea = areaTerrea + areaSuperior;
+        const pavimentos = areaSuperior > 0 || obra.tipo === "Sobrado" ? 2 : 1;
+        const wallArea = perimetro > 0 ? (perimetro * peDireito) + (pavimentos > 1 ? perimetro * peDireitoSuperior : 0) : 0;
+        return {
+          areaTerrea,
+          areaSuperior,
+          totalArea,
+          perimetro,
+          peDireito,
+          peDireitoSuperior,
+          areaCobertura,
+          pavimentos,
+          wallArea,
+          fundacao: obra.fundacao || "baldrame"
+        };
+      }
+
+      function getQuantityByObraMetragem(activity, obra) {
+        const metrics = getObraMetragem(obra);
+        if (!metrics.totalArea && !metrics.perimetro && !metrics.wallArea) return activity.qty;
+        const scaleArea = value => Math.max(0, (Number(value || 0) / 150) * activity.qty);
+        const scalePerimeter = value => Math.max(0, (Number(value || 0) / 50) * activity.qty);
+
+        if (activity.unit === "dia") return activity.qty;
+        if (activity.code === "ECB-010201") return metrics.totalArea || activity.qty;
+        if (activity.code === "ECB-010202") return metrics.perimetro || activity.qty;
+        if (activity.code === "ECB-030101") return metrics.fundacao === "radier" ? 0 : Math.max(1, Math.ceil((metrics.perimetro || 50) / 4));
+        if (activity.code === "ECB-030201") return metrics.fundacao === "radier" ? scaleArea(metrics.areaTerrea) : scalePerimeter(metrics.perimetro || 50);
+        if (activity.discipline === "Fundacao" && activity.unit === "m") return metrics.fundacao === "radier" ? 0 : metrics.perimetro || activity.qty;
+        if (activity.discipline === "Fundacao" && activity.unit === "m2") return metrics.areaTerrea || activity.qty;
+        if (activity.discipline === "Piso") return metrics.totalArea || activity.qty;
+        if (activity.code === "ECB-060101") return metrics.perimetro ? metrics.perimetro * metrics.pavimentos : activity.qty;
+        if (activity.code === "ECB-060102") return metrics.perimetro ? metrics.perimetro * 0.5 * metrics.pavimentos : activity.qty;
+        if (activity.code === "ECB-060201") return metrics.perimetro ? metrics.perimetro * Math.min(metrics.peDireito, 2.5) : activity.qty;
+        if (activity.code === "ECB-060202") return metrics.pavimentos > 1 && metrics.perimetro ? metrics.perimetro * Math.min(metrics.peDireitoSuperior || 2.8, 2.5) : 0;
+        if (activity.discipline === "Alvenaria" && activity.unit === "m") return metrics.perimetro || activity.qty;
+        if (activity.discipline === "Estrutura Metalica" && activity.unit === "m2") return metrics.areaCobertura || metrics.totalArea || activity.qty;
+        if (activity.discipline === "Cobertura" && activity.unit === "m2") return metrics.areaCobertura || activity.qty;
+        if (activity.discipline === "Cobertura" && activity.unit === "m") return metrics.perimetro || activity.qty;
+        if (activity.discipline === "Revestimentos") return metrics.wallArea || activity.qty;
+        return activity.qty;
+      }
+
       function buildEngineeringPlan(obra) {
         const disciplines = ECB_PROCESS_BY_TYPE[obra?.tipo] || ECB_PROCESS_BY_TYPE["Casa terrea"];
         return ECB_PRODUCTIVITY_MASTER
           .filter(item => disciplines.includes(item.discipline))
           .filter(item => obra?.tipo === "Sobrado" || item.code !== "ECB-060202")
+          .filter(item => getQuantityByObraMetragem(item, obra) > 0)
           .map(item => recalcActivityLabor({
             id: crypto.randomUUID(),
             code: item.code,
             discipline: item.discipline,
             name: item.name,
             unit: item.unit,
-            quantity: item.qty,
+            quantity: getQuantityByObraMetragem(item, obra),
             crew: item.crew,
             productivity: item.productivity,
             source: item.source,
@@ -879,7 +944,11 @@
       }
 
       function renderObras() {
-        const rows = db.obras.map(o => `<tr><td><strong>${escapeHtml(o.nome)}</strong><br><span class="muted">${escapeHtml(o.tipo)}</span></td><td>${escapeHtml(o.cliente || "-")}<br><span class="muted">Usuario cliente: ${escapeHtml(o.clienteUsuario || "-")}</span></td><td>${escapeHtml(o.endereco || "-")}</td><td>${escapeHtml(o.status)}<br>${escapeHtml(o.inicio || "Sem data")}</td><td><button type="button" onclick="editObra('${o.id}')">Editar</button> <button type="button" onclick="abrirControleObra('${o.id}')">Controle</button> <button class="danger" type="button" onclick="deleteObra('${o.id}')">Excluir</button></td></tr>`).join("");
+        const rows = db.obras.map(o => {
+          const metrics = getObraMetragem(o);
+          const metragem = metrics.totalArea || metrics.perimetro ? `${metrics.totalArea || 0} m2 | ${metrics.perimetro || 0} m linear` : "Metragem nao informada";
+          return `<tr><td><strong>${escapeHtml(o.nome)}</strong><br><span class="muted">${escapeHtml(o.tipo)} - ${escapeHtml(metragem)}</span></td><td>${escapeHtml(o.cliente || "-")}<br><span class="muted">Usuario cliente: ${escapeHtml(o.clienteUsuario || "-")}</span></td><td>${escapeHtml(o.endereco || "-")}</td><td>${escapeHtml(o.status)}<br>${escapeHtml(o.inicio || "Sem data")}</td><td><button type="button" onclick="editObra('${o.id}')">Editar</button> <button type="button" onclick="abrirControleObra('${o.id}')">Controle</button> <button class="danger" type="button" onclick="deleteObra('${o.id}')">Excluir</button></td></tr>`;
+        }).join("");
         byId("obrasTabela").innerHTML = rows ? `<table><thead><tr><th>Obra</th><th>Cliente</th><th>Endereco</th><th>Status</th><th>Acoes</th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">Nenhuma obra cadastrada.</div>`;
       }
 
@@ -901,6 +970,13 @@
         byId("controleObraEndereco").value = obra?.endereco || "";
         byId("controleObraTipo").value = obra?.tipo || "Casa terrea";
         byId("controleObraInicio").value = obra?.inicio || "";
+        byId("controleObraAreaTerrea").value = obra?.areaTerrea || "";
+        byId("controleObraAreaSuperior").value = obra?.areaSuperior || "";
+        byId("controleObraPerimetro").value = obra?.perimetro || "";
+        byId("controleObraPeDireito").value = obra?.peDireito || "";
+        byId("controleObraPeDireitoSuperior").value = obra?.peDireitoSuperior || "";
+        byId("controleObraAreaCobertura").value = obra?.areaCobertura || "";
+        byId("controleObraFundacao").value = obra?.fundacao || "baldrame";
         byId("controleObraClienteUsuario").value = obra?.clienteUsuario || "";
         byId("controleObraClienteSenha").value = obra?.clienteSenha || "";
         renderControleAlocados(obraId);
@@ -1205,12 +1281,25 @@
           tipo: byId("obraTipo").value,
           status: byId("obraStatus").value,
           inicio: byId("obraInicio").value,
+          areaTerrea: Number(byId("obraAreaTerrea").value || 0),
+          areaSuperior: Number(byId("obraAreaSuperior").value || 0),
+          perimetro: Number(byId("obraPerimetro").value || 0),
+          peDireito: Number(byId("obraPeDireito").value || 0),
+          peDireitoSuperior: Number(byId("obraPeDireitoSuperior").value || 0),
+          areaCobertura: Number(byId("obraAreaCobertura").value || 0),
+          fundacao: byId("obraFundacao").value,
           clienteUsuario: byId("obraClienteUsuario").value || existing?.clienteUsuario || "",
           clienteSenha: byId("obraClienteSenha").value || existing?.clienteSenha || ""
         };
         const index = db.obras.findIndex(o => o.id === id);
         if (index >= 0) db.obras[index] = item;
         else db.obras.push(item);
+        const controle = getControle(id);
+        if (!controle.engenhariaPlano.length && (item.areaTerrea || item.areaSuperior || item.perimetro || item.areaCobertura)) {
+          controle.engenhariaPlano = buildEngineeringPlan(item);
+          controle.percentual = 0;
+          controle.status = item.status;
+        }
         byId("obraForm").reset();
         byId("obraId").value = "";
         save();
@@ -1229,10 +1318,28 @@
         obra.endereco = byId("controleObraEndereco").value;
         obra.tipo = byId("controleObraTipo").value;
         obra.inicio = byId("controleObraInicio").value;
+        obra.areaTerrea = Number(byId("controleObraAreaTerrea").value || 0);
+        obra.areaSuperior = Number(byId("controleObraAreaSuperior").value || 0);
+        obra.perimetro = Number(byId("controleObraPerimetro").value || 0);
+        obra.peDireito = Number(byId("controleObraPeDireito").value || 0);
+        obra.peDireitoSuperior = Number(byId("controleObraPeDireitoSuperior").value || 0);
+        obra.areaCobertura = Number(byId("controleObraAreaCobertura").value || 0);
+        obra.fundacao = byId("controleObraFundacao").value;
         obra.clienteUsuario = byId("controleObraClienteUsuario").value;
         obra.clienteSenha = byId("controleObraClienteSenha").value;
         if (previousType !== obra.tipo && getControle(obraId).engenhariaPlano.length) {
           alert("Tipo da obra alterado. Se quiser trocar as etapas, clique em Gerar plano da obra e confirme a substituicao.");
+        }
+        const controle = getControle(obraId);
+        if (controle.engenhariaPlano.length) {
+          controle.engenhariaPlano = controle.engenhariaPlano
+            .map(item => {
+              const activity = ECB_PRODUCTIVITY_MASTER.find(base => base.code === item.code);
+              if (!activity) return item;
+              const quantity = getQuantityByObraMetragem(activity, obra);
+              return quantity > 0 ? recalcActivityLabor({ ...item, quantity }) : null;
+            })
+            .filter(Boolean);
         }
         save();
         renderAll();
@@ -1252,12 +1359,22 @@
       });
       byId("recalcularPlanoEngenharia").addEventListener("click", () => {
         const obraId = selectedObraControleId();
+        const obra = db.obras.find(o => o.id === obraId);
         const controle = getControle(obraId);
         if (!controle.engenhariaPlano.length) {
           alert("Gere o plano da obra primeiro.");
           return;
         }
-        saveEngineeringPlanFromInputs(obraId);
+        controle.engenhariaPlano = controle.engenhariaPlano
+          .map(item => {
+            const activity = ECB_PRODUCTIVITY_MASTER.find(base => base.code === item.code);
+            if (!activity || !obra) return item;
+            const quantity = getQuantityByObraMetragem(activity, obra);
+            return quantity > 0 ? recalcActivityLabor({ ...item, quantity }) : null;
+          })
+          .filter(Boolean);
+        save();
+        renderAll();
       });
       byId("salvarPlanoEngenharia").addEventListener("click", () => {
         const obraId = selectedObraControleId();
@@ -1393,6 +1510,13 @@
         byId("obraTipo").value = o.tipo || "Casa terrea";
         byId("obraStatus").value = o.status || "Em andamento";
         byId("obraInicio").value = o.inicio || "";
+        byId("obraAreaTerrea").value = o.areaTerrea || "";
+        byId("obraAreaSuperior").value = o.areaSuperior || "";
+        byId("obraPerimetro").value = o.perimetro || "";
+        byId("obraPeDireito").value = o.peDireito || "";
+        byId("obraPeDireitoSuperior").value = o.peDireitoSuperior || "";
+        byId("obraAreaCobertura").value = o.areaCobertura || "";
+        byId("obraFundacao").value = o.fundacao || "baldrame";
         byId("obraClienteUsuario").value = o.clienteUsuario || "";
         byId("obraClienteSenha").value = o.clienteSenha || "";
         document.querySelector('[data-view="admin"]').click();
