@@ -294,7 +294,7 @@
             <div class="toolbar">
               <div>
                 <h3>Plano de engenharia ECB</h3>
-                <p class="muted">Etapas, produtividade, prazo previsto e medicao por atividade da obra.</p>
+                <p class="muted">Etapas, produtividade, prazo previsto, medicao fisica e financeiro de mao de obra por atividade.</p>
               </div>
               <button class="primary" id="gerarPlanoEngenharia" type="button">Gerar plano da obra</button>
             </div>
@@ -388,6 +388,9 @@
             <div class="card stat"><span class="muted">Fotos de avanco</span><strong id="clienteQtdFotos">0</strong></div>
             <div class="card stat"><span class="muted">Prazo planejado</span><strong id="clientePrazoPlanejado">0 dias</strong></div>
             <div class="card stat"><span class="muted">Etapas concluidas</span><strong id="clienteEtapasEngenharia">0/0</strong></div>
+            <div class="card stat"><span class="muted">Mao de obra prevista</span><strong id="clienteMoPrevista">R$ 0,00</strong></div>
+            <div class="card stat"><span class="muted">MO medida aprovada</span><strong id="clienteMoMedida">R$ 0,00</strong></div>
+            <div class="card stat"><span class="muted">MO paga</span><strong id="clienteMoPaga">R$ 0,00</strong></div>
           </div>
           <div class="grid cols-2">
             <div class="card">
@@ -487,6 +490,25 @@
         "Fundacao": ["Servicos Preliminares", "Fundacao", "Entrega"],
         "Estrutura metalica": ["Servicos Preliminares", "Fundacao", "Estrutura Metalica", "Cobertura", "Entrega"]
       };
+      const ECB_LABOR_VALUE_HINTS = [
+        { test: item => item.code === "ECB-010101", value: 1200 },
+        { test: item => item.code === "ECB-010201", value: 900 },
+        { test: item => item.code === "ECB-010202", value: 1400 },
+        { test: item => item.name.includes("brocas"), value: 5800 },
+        { test: item => item.name.includes("baldrame") || item.name.includes("fundacao"), value: 2300 },
+        { test: item => item.name.includes("primeira fiada"), value: 2200 },
+        { test: item => item.name.includes("2,50 m"), value: 9800 },
+        { test: item => item.name.includes("cinta intermediaria"), value: 6800 },
+        { test: item => item.name.includes("5,00 m"), value: 9800 },
+        { test: item => item.name.includes("cintamento superior"), value: 7200 },
+        { test: item => item.discipline === "Estrutura Metalica" && item.name.includes("tesouras"), value: 7250 },
+        { test: item => item.discipline === "Estrutura Metalica" && item.name.includes("tercas"), value: 7250 },
+        { test: item => item.discipline === "Cobertura", value: 3600 },
+        { test: item => item.name.includes("chapisco"), value: 3600 },
+        { test: item => item.name.includes("reboco"), value: 9000 },
+        { test: item => item.discipline === "Piso", value: 2833.33 },
+        { test: item => item.discipline === "Limpeza" || item.discipline === "Entrega", value: 1250 }
+      ];
       const seed = {
         colaboradores: [
           { id: "c1", nome: "Joao Pedro Silva", cpf: "111.222.333-44", telefone: "(18) 99999-1111", contrato: "Diarista", valor: 180, funcao: "Pedreiro" },
@@ -585,6 +607,11 @@
         db.controles[obraId].fotos = db.controles[obraId].fotos || [];
         db.controles[obraId].alocados = db.controles[obraId].alocados || [];
         db.controles[obraId].engenhariaPlano = db.controles[obraId].engenhariaPlano || [];
+        db.controles[obraId].engenhariaPlano = db.controles[obraId].engenhariaPlano.map(item => ({
+          ...item,
+          laborValue: Number(item.laborValue || 0) > 0 ? Number(item.laborValue) : laborValueForActivity(item),
+          paidValue: Number(item.paidValue || 0)
+        }));
         return db.controles[obraId];
       }
 
@@ -598,6 +625,28 @@
         const completed = plan.filter(item => Number(item.percent || 0) >= 100 || item.status === "Concluido").length;
         const average = plan.length ? Math.round(plan.reduce((sum, item) => sum + Number(item.percent || 0), 0) / plan.length) : 0;
         return { plannedDays, completed, total: plan.length, average };
+      }
+
+      function laborValueForActivity(item) {
+        const normalized = { ...item, name: normalizeText(item.name), discipline: item.discipline };
+        const hit = ECB_LABOR_VALUE_HINTS.find(rule => rule.test(normalized));
+        if (hit) return hit.value;
+        if (item.unit === "dia") return Number(item.quantity || item.qty || 1) * 1000;
+        return Number(item.quantity || item.qty || 0) * 45;
+      }
+
+      function planFinancialStats(plan = []) {
+        return plan.reduce((acc, item) => {
+          const planned = Number(item.laborValue || 0);
+          const measured = planned * Math.max(0, Math.min(100, Number(item.percent || 0))) / 100;
+          const paid = Number(item.paidValue || 0);
+          acc.planned += planned;
+          acc.measured += measured;
+          acc.paid += paid;
+          acc.balance += Math.max(0, planned - paid);
+          acc.overpaid += Math.max(0, paid - measured);
+          return acc;
+        }, { planned: 0, measured: 0, paid: 0, balance: 0, overpaid: 0 });
       }
 
       function buildEngineeringPlan(obra) {
@@ -617,7 +666,9 @@
             source: item.source,
             status: "Nao iniciado",
             percent: 0,
-            measured: 0
+            measured: 0,
+            laborValue: laborValueForActivity(item),
+            paidValue: 0
           }));
       }
 
@@ -631,7 +682,9 @@
           const status = row.querySelector("[data-plan-status]")?.value || item.status;
           const percentByMeasured = quantity > 0 ? Math.round((measured / quantity) * 100) : 0;
           const percent = Math.max(0, Math.min(100, Number(row.querySelector("[data-plan-percent]")?.value || percentByMeasured)));
-          return { ...item, quantity, measured, status, percent };
+          const laborValue = Number(row.querySelector("[data-plan-labor]")?.value || item.laborValue || 0);
+          const paidValue = Number(row.querySelector("[data-plan-paid]")?.value || 0);
+          return { ...item, quantity, measured, status, percent, laborValue, paidValue };
         });
         const stats = planStats(controle.engenhariaPlano);
         controle.percentual = stats.average;
@@ -750,27 +803,40 @@
         const controle = getControle(obraId);
         const plan = controle.engenhariaPlano || [];
         const stats = planStats(plan);
+        const finance = planFinancialStats(plan);
         byId("controlePlanoResumo").innerHTML = `
           <div class="stat"><span class="muted">Prazo planejado</span><strong>${stats.plannedDays} dias</strong></div>
           <div class="stat"><span class="muted">Avanco tecnico</span><strong>${stats.average}%</strong></div>
-          <div class="stat"><span class="muted">Etapas concluidas</span><strong>${stats.completed}/${stats.total}</strong></div>`;
+          <div class="stat"><span class="muted">Etapas concluidas</span><strong>${stats.completed}/${stats.total}</strong></div>
+          <div class="stat"><span class="muted">MO prevista</span><strong>${money(finance.planned)}</strong></div>
+          <div class="stat"><span class="muted">MO medida</span><strong>${money(finance.measured)}</strong></div>
+          <div class="stat"><span class="muted">MO paga / saldo</span><strong>${money(finance.paid)} / ${money(finance.balance)}</strong></div>
+          ${finance.overpaid > 0 ? `<div class="stat"><span class="muted">Alerta financeiro</span><strong>Pagamento acima da medicao: ${money(finance.overpaid)}</strong></div>` : ""}`;
         if (!plan.length) {
           byId("controlePlanoLista").innerHTML = `<div class="empty">Nenhum plano gerado. Clique em Gerar plano da obra para criar as etapas com base no tipo da obra.</div>`;
           return;
         }
-        const rows = plan.map(item => `
-          <tr data-plan-row="${item.id}">
+        const rows = plan.map(item => {
+          const laborValue = Number(item.laborValue || 0);
+          const measuredValue = laborValue * Math.max(0, Math.min(100, Number(item.percent || 0))) / 100;
+          const paidValue = Number(item.paidValue || 0);
+          const overpaidClass = paidValue > measuredValue ? ` style="background:#fff2f2"` : "";
+          return `
+          <tr data-plan-row="${item.id}"${overpaidClass}>
             <td><strong>${escapeHtml(item.name)}</strong><br><span class="muted">${escapeHtml(item.code)} - ${escapeHtml(item.discipline)}</span></td>
             <td><input data-plan-quantity type="number" min="0" step="0.01" value="${Number(item.quantity || 0)}" style="max-width:90px" /> ${escapeHtml(item.unit)}</td>
             <td>${escapeHtml(item.crew)}<br><span class="muted">${Number(item.productivity || 0)} ${escapeHtml(item.unit)}/dia</span></td>
             <td>${planDays(item)} dia(s)</td>
             <td><input data-plan-measured type="number" min="0" step="0.01" value="${Number(item.measured || 0)}" style="max-width:90px" /></td>
             <td><input data-plan-percent type="number" min="0" max="100" value="${Number(item.percent || 0)}" style="max-width:72px" />%</td>
+            <td><input data-plan-labor type="number" min="0" step="0.01" value="${laborValue.toFixed(2)}" style="max-width:110px" /><br><span class="muted">Medido: ${money(measuredValue)}</span></td>
+            <td><input data-plan-paid type="number" min="0" step="0.01" value="${paidValue.toFixed(2)}" style="max-width:110px" /><br><span class="muted">Saldo: ${money(Math.max(0, laborValue - paidValue))}</span></td>
             <td><select data-plan-status>
               ${["Nao iniciado", "Em execucao", "Aguardando vistoria", "Aprovado para medicao", "Medido", "Concluido", "Pago"].map(status => `<option ${item.status === status ? "selected" : ""}>${status}</option>`).join("")}
             </select></td>
-          </tr>`).join("");
-        byId("controlePlanoLista").innerHTML = `<table><thead><tr><th>Atividade</th><th>Qtd.</th><th>Equipe/produtividade</th><th>Prazo</th><th>Medido</th><th>%</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
+          </tr>`;
+        }).join("");
+        byId("controlePlanoLista").innerHTML = `<table><thead><tr><th>Atividade</th><th>Qtd.</th><th>Equipe/produtividade</th><th>Prazo</th><th>Medido</th><th>%</th><th>MO prevista</th><th>Pago</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
       }
 
       function renderControleAlocados(obraId) {
@@ -807,6 +873,7 @@
         const fotos = controle.fotos || [];
         const plan = controle.engenhariaPlano || [];
         const stats = planStats(plan);
+        const finance = planFinancialStats(plan);
         const total = gastos.reduce((sum, item) => sum + Number(item.valor || 0), 0);
         const equipeIds = new Set([...(controle.alocados || []), ...db.pontos.filter(p => p.obraId === obra.id).map(p => p.colaboradorId)]);
         const equipe = db.colaboradores.filter(c => equipeIds.has(c.id));
@@ -821,9 +888,15 @@
         byId("clienteQtdFotos").textContent = fotos.length;
         byId("clientePrazoPlanejado").textContent = `${stats.plannedDays} dias`;
         byId("clienteEtapasEngenharia").textContent = `${stats.completed}/${stats.total}`;
+        byId("clienteMoPrevista").textContent = money(finance.planned);
+        byId("clienteMoMedida").textContent = money(finance.measured);
+        byId("clienteMoPaga").textContent = money(finance.paid);
         byId("clienteResumoObra").textContent = controle.resumo || "Sem atualizacao cadastrada.";
         byId("clienteEquipe").innerHTML = equipe.length ? equipe.map(c => `<span class="pill">${escapeHtml(c.nome)} - ${escapeHtml(c.funcao)}</span>`).join(" ") : `<div class="empty">Equipe ainda nao vinculada.</div>`;
-        byId("clientePlanoEngenharia").innerHTML = plan.length ? `<table><thead><tr><th>Etapa</th><th>Status</th><th>Avanco</th></tr></thead><tbody>${plan.map(item => `<tr><td><strong>${escapeHtml(item.name)}</strong><br><span class="muted">${escapeHtml(item.discipline)}</span></td><td>${escapeHtml(item.status)}</td><td>${Number(item.percent || 0)}%</td></tr>`).join("")}</tbody></table>` : `<div class="empty">Plano de engenharia ainda nao gerado.</div>`;
+        byId("clientePlanoEngenharia").innerHTML = plan.length ? `<table><thead><tr><th>Etapa</th><th>Status</th><th>Avanco</th><th>MO medida</th></tr></thead><tbody>${plan.map(item => {
+          const measuredValue = Number(item.laborValue || 0) * Math.max(0, Math.min(100, Number(item.percent || 0))) / 100;
+          return `<tr><td><strong>${escapeHtml(item.name)}</strong><br><span class="muted">${escapeHtml(item.discipline)}</span></td><td>${escapeHtml(item.status)}</td><td>${Number(item.percent || 0)}%</td><td>${money(measuredValue)}</td></tr>`;
+        }).join("")}</tbody></table>` : `<div class="empty">Plano de engenharia ainda nao gerado.</div>`;
         const gastoRows = gastos.slice().reverse().map(g => `<tr><td>${escapeHtml(g.descricao || "Compra")}</td><td>${escapeHtml(g.fornecedor || "-")}</td><td>${escapeHtml(g.data || "-")}</td><td>${money(g.valor)}</td></tr>`).join("");
         byId("clienteGastosLista").innerHTML = gastoRows ? `<table><thead><tr><th>Item</th><th>Fornecedor</th><th>Data</th><th>Valor</th></tr></thead><tbody>${gastoRows}</tbody></table>` : `<div class="empty">Nenhum gasto lancado ainda.</div>`;
         byId("clienteFotosLista").innerHTML = fotos.length ? `<div class="thumbs">${fotos.slice().reverse().map(f => `<div class="thumb"><img src="${f.url}" alt="${escapeHtml(f.legenda)}" /><div><strong>${escapeHtml(f.legenda || "Foto da obra")}</strong><br><span class="muted">${escapeHtml(f.data || "")}</span></div></div>`).join("")}</div>` : `<div class="empty">Nenhuma foto cadastrada ainda.</div>`;
