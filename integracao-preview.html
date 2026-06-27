@@ -103,20 +103,16 @@
           </div>
         </button>
         <nav>
-          <button class="tab active" data-view="operacao">Operacao</button>
+          <button class="tab active" data-view="admin">Admin</button>
           <button class="tab" data-view="ponto">Registro de Ponto</button>
-          <button class="tab" data-view="colaborador">Area do Colaborador</button>
-          <button class="tab" data-view="admin">Admin</button>
-          <button class="tab" data-view="controleObra">Controle de Obra</button>
           <button class="tab" data-view="cliente">Area do Cliente</button>
-          <button class="tab" data-view="orcamentos">Orcamentos</button>
           <button class="tab" data-view="materiais">Materiais</button>
         </nav>
       </div>
     </header>
 
     <main>
-      <section class="view active" id="operacao">
+      <section class="view" id="operacao">
         <div class="hero">
           <div>
             <p class="muted">Painel principal</p>
@@ -225,7 +221,7 @@
         </div>
       </section>
 
-      <section class="view" id="admin">
+      <section class="view active" id="admin">
         <div class="toolbar">
           <div>
             <h2>Admin</h2>
@@ -249,6 +245,19 @@
         </form>
 
         <div id="adminPanel" class="hidden">
+          <div class="card" style="margin-bottom:14px">
+            <div class="toolbar">
+              <div>
+                <h3>Sub menu administrativo</h3>
+                <p class="muted">Acesso interno do ADM para operacao, controle das obras e orcamentos.</p>
+              </div>
+              <div class="actions">
+                <button type="button" data-view="operacao">Operacao</button>
+                <button type="button" data-view="controleObra">Controle de Obra</button>
+                <button type="button" data-view="orcamentos">Orcamentos</button>
+              </div>
+            </div>
+          </div>
           <form class="card grid cols-3" id="colabForm">
             <input type="hidden" id="colabId" />
             <label>Nome completo<input id="colabNome" required /></label>
@@ -1115,6 +1124,7 @@
       }
 
       function showView(view, options = {}) {
+        const adminSubViews = ["operacao", "controleObra", "orcamentos"];
         if (view === "operacao" && !adminAutenticado) {
           byId("adminLoginMsg").textContent = "A area Operacao e restrita ao administrador. Entre com ADM / ADM6347.";
           return showView("admin", { force: true });
@@ -1125,9 +1135,12 @@
 
         const targetButton = document.querySelector(`[data-view="${view}"]`);
         const targetView = document.getElementById(view);
-        if (!targetButton || !targetView) return;
+        if (!targetView) return;
 
         document.querySelectorAll("[data-view]").forEach(b => b.classList.toggle("active", b === targetButton));
+        if (adminSubViews.includes(view)) {
+          document.querySelector('nav [data-view="admin"]')?.classList.add("active");
+        }
         document.querySelectorAll(".view").forEach(v => v.classList.toggle("active", v.id === view));
         if (view === "controleObra") renderControleObra();
         if (view === "cliente") renderClienteArea();
@@ -1137,7 +1150,7 @@
       document.querySelectorAll("[data-view]").forEach(btn => {
         btn.addEventListener("click", () => showView(btn.dataset.view));
       });
-      byId("homeLogoBtn").addEventListener("click", () => showView("operacao"));
+      byId("homeLogoBtn").addEventListener("click", () => showView("admin"));
 
       function renderSelects() {
         const controleAtual = byId("controleObraSelect")?.value || "";
@@ -1483,7 +1496,7 @@
           byId("adminLoginMsg").textContent = "";
           byId("adminLoginForm").reset();
           renderAdminAccess();
-          showView("operacao");
+          showView("admin");
         } else {
           byId("adminLoginMsg").textContent = "Usuario ou senha incorretos.";
         }
@@ -1492,7 +1505,7 @@
         adminAutenticado = false;
         localStorage.removeItem(adminSessionKey);
         renderAdminAccess();
-        if (location.hash === "#operacao") {
+        if (["#operacao", "#controleObra", "#orcamentos"].includes(location.hash)) {
           showView("admin");
         }
       });
@@ -1875,7 +1888,7 @@
         normalizeDb();
         if (apiDisponivel) save();
         renderAll();
-        showView(location.hash ? location.hash.slice(1) : "operacao", { skipHash: Boolean(location.hash) });
+        showView(location.hash ? location.hash.slice(1) : "admin", { skipHash: Boolean(location.hash) });
       }
 
       initApp();
