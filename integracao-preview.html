@@ -448,8 +448,8 @@
             <div class="card stat"><span class="muted">Fotos de avanco</span><strong id="clienteQtdFotos">0</strong></div>
             <div class="card stat"><span class="muted">Prazo planejado</span><strong id="clientePrazoPlanejado">0 dias</strong></div>
             <div class="card stat"><span class="muted">Etapas concluidas</span><strong id="clienteEtapasEngenharia">0/0</strong></div>
-            <div class="card stat"><span class="muted">Mao de obra prevista c/ BDI</span><strong id="clienteMoPrevista">R$ 0,00</strong></div>
-            <div class="card stat"><span class="muted">MO medida aprovada c/ BDI</span><strong id="clienteMoMedida">R$ 0,00</strong></div>
+            <div class="card stat"><span class="muted">Mao de obra prevista</span><strong id="clienteMoPrevista">R$ 0,00</strong></div>
+            <div class="card stat"><span class="muted">MO medida aprovada</span><strong id="clienteMoMedida">R$ 0,00</strong></div>
             <div class="card stat"><span class="muted">MO paga</span><strong id="clienteMoPaga">R$ 0,00</strong></div>
           </div>
           <div class="grid cols-2">
@@ -1335,14 +1335,14 @@
         byId("clienteQtdFotos").textContent = fotos.length;
         byId("clientePrazoPlanejado").textContent = `${stats.plannedDays} dias`;
         byId("clienteEtapasEngenharia").textContent = `${stats.completed}/${stats.total}`;
-        byId("clienteMoPrevista").textContent = `${money(finance.planned)} c/ BDI`;
-        byId("clienteMoMedida").textContent = `${money(finance.measured)} c/ BDI`;
+        byId("clienteMoPrevista").textContent = money(finance.planned);
+        byId("clienteMoMedida").textContent = money(finance.measured);
         byId("clienteMoPaga").textContent = money(finance.paid);
         byId("clienteResumoObra").textContent = controle.resumo || "Sem atualizacao cadastrada.";
         byId("clienteEquipe").innerHTML = equipe.length ? equipe.map(c => `<span class="pill">${escapeHtml(c.nome)} - ${escapeHtml(c.funcao)}</span>`).join(" ") : `<div class="empty">Equipe ainda nao vinculada.</div>`;
         byId("clientePlanoEngenharia").innerHTML = plan.length ? `<table><thead><tr><th>Etapa</th><th>Status</th><th>Avanco</th><th>MO medida</th></tr></thead><tbody>${plan.map(item => {
           const measuredValue = Number(item.laborValue || 0) * Math.max(0, Math.min(100, Number(item.percent || 0))) / 100;
-          return `<tr><td><strong>${escapeHtml(item.name)}</strong><br><span class="muted">${escapeHtml(item.discipline)} | BDI ${Number(item.bdiPercent ?? defaultBdiPercent)}%</span></td><td>${escapeHtml(item.status)}</td><td>${Number(item.percent || 0)}%</td><td>${money(measuredValue)}</td></tr>`;
+          return `<tr><td><strong>${escapeHtml(item.name)}</strong><br><span class="muted">${escapeHtml(item.discipline)}</span></td><td>${escapeHtml(item.status)}</td><td>${Number(item.percent || 0)}%</td><td>${money(measuredValue)}</td></tr>`;
         }).join("")}</tbody></table>` : `<div class="empty">Plano de engenharia ainda nao gerado.</div>`;
         const gastoRows = gastos.slice().reverse().map(g => `<tr><td>${escapeHtml(g.descricao || "Compra")}</td><td>${escapeHtml(g.fornecedor || "-")}</td><td>${escapeHtml(g.data || "-")}</td><td>${money(g.valor)}</td></tr>`).join("");
         byId("clienteGastosLista").innerHTML = gastoRows ? `<table><thead><tr><th>Item</th><th>Fornecedor</th><th>Data</th><th>Valor</th></tr></thead><tbody>${gastoRows}</tbody></table>` : `<div class="empty">Nenhum gasto lancado ainda.</div>`;
