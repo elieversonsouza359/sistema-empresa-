@@ -316,6 +316,9 @@
             <label>Pe-direito superior (m)<input id="obraPeDireitoSuperior" min="0" step="0.01" type="number" placeholder="Ex.: 2.80" /></label>
             <label>Area cobertura (m2)<input id="obraAreaCobertura" min="0" step="0.01" type="number" placeholder="Ex.: 170" /></label>
             <label>Fundacao<select id="obraFundacao"><option value="baldrame">Baldrame</option><option value="radier">Radier</option><option value="sapata">Sapata</option><option value="sem_estrutural">Sem projeto estrutural</option></select></label>
+            <label>Laje<select id="obraLajeTipo"><option value="sem_laje">Sem laje</option><option value="pre_moldada">Laje pre-moldada</option><option value="trelicada">Laje trelicada</option><option value="macica">Laje macica</option><option value="steel_deck">Steel deck</option></select></label>
+            <label>Area de laje (m2)<input id="obraAreaLaje" min="0" step="0.01" type="number" placeholder="Ex.: 80" /></label>
+            <label>Funcionarios previstos<input id="obraEquipePrevista" min="1" step="1" type="number" placeholder="Ex.: 4" /></label>
             <label>Usuario do cliente<input id="obraClienteUsuario" placeholder="Ex.: cliente.casa" /></label>
             <label>Senha do cliente<input id="obraClienteSenha" placeholder="Definida pelo administrador" /></label>
             <button class="primary" type="submit">Salvar obra</button>
@@ -370,6 +373,9 @@
             <label>Pe-direito superior (m)<input id="controleObraPeDireitoSuperior" min="0" step="0.01" type="number" /></label>
             <label>Area cobertura (m2)<input id="controleObraAreaCobertura" min="0" step="0.01" type="number" /></label>
             <label>Fundacao<select id="controleObraFundacao"><option value="baldrame">Baldrame</option><option value="radier">Radier</option><option value="sapata">Sapata</option><option value="sem_estrutural">Sem projeto estrutural</option></select></label>
+            <label>Laje<select id="controleObraLajeTipo"><option value="sem_laje">Sem laje</option><option value="pre_moldada">Laje pre-moldada</option><option value="trelicada">Laje trelicada</option><option value="macica">Laje macica</option><option value="steel_deck">Steel deck</option></select></label>
+            <label>Area de laje (m2)<input id="controleObraAreaLaje" min="0" step="0.01" type="number" /></label>
+            <label>Funcionarios previstos<input id="controleObraEquipePrevista" min="1" step="1" type="number" /></label>
             <label>Usuario do cliente<input id="controleObraClienteUsuario" /></label>
             <label>Senha do cliente<input id="controleObraClienteSenha" /></label>
             <button class="primary" type="submit">Salvar dados da obra</button>
@@ -564,6 +570,9 @@
         { code: "ECB-040101", discipline: "Piso", name: "Preparacao e nivelamento do terreno interno", unit: "m2", qty: 150, crew: "1 pedreiro + 1 servente", productivity: 50, source: "Premissa E-Corp" },
         { code: "ECB-040105", discipline: "Piso", name: "Instalacao de malha POP", unit: "m2", qty: 150, crew: "1 pedreiro + 1 servente", productivity: 100, source: "Premissa E-Corp" },
         { code: "ECB-040106", discipline: "Piso", name: "Concretagem de contrapiso/piso", unit: "m2", qty: 150, crew: "1 pedreiro + 1 servente", productivity: 75, source: "Premissa E-Corp" },
+        { code: "ECB-050101", discipline: "Laje", name: "Montagem de escoramento e forma da laje", unit: "m2", qty: 80, crew: "2 pedreiros + 2 serventes", productivity: 35, source: "Premissa E-Corp" },
+        { code: "ECB-050201", discipline: "Laje", name: "Montagem da armadura e elementos da laje", unit: "m2", qty: 80, crew: "2 pedreiros + 2 serventes", productivity: 45, source: "Premissa E-Corp" },
+        { code: "ECB-050301", discipline: "Laje", name: "Concretagem da laje", unit: "m2", qty: 80, crew: "2 pedreiros + 2 serventes", productivity: 70, source: "Premissa E-Corp" },
         { code: "ECB-060101", discipline: "Alvenaria", name: "Marcacao da primeira fiada", unit: "m", qty: 50, crew: "1 pedreiro + 1 servente", productivity: 25, source: "Premissa E-Corp" },
         { code: "ECB-060102", discipline: "Alvenaria", name: "Assentamento da primeira fiada", unit: "m2", qty: 25, crew: "1 pedreiro + 1 servente", productivity: 8.5, source: "Premissa E-Corp" },
         { code: "ECB-060201", discipline: "Alvenaria", name: "Assentamento de alvenaria ate 2,50 m", unit: "m2", qty: 125, crew: "1 pedreiro + 1 servente", productivity: 9.6, source: "Cronograma aprovado" },
@@ -582,10 +591,10 @@
         { code: "ECB-150101", discipline: "Entrega", name: "Entrega tecnica ao cliente", unit: "dia", qty: 1, crew: "Responsavel tecnico", productivity: 1, source: "Premissa E-Corp" }
       ];
       const ECB_PROCESS_BY_TYPE = {
-        "Casa terrea": ["Servicos Preliminares", "Fundacao", "Piso", "Alvenaria", "Cobertura", "Revestimentos", "Limpeza", "Entrega"],
-        "Sobrado": ["Servicos Preliminares", "Fundacao", "Piso", "Alvenaria", "Cobertura", "Revestimentos", "Limpeza", "Entrega"],
+        "Casa terrea": ["Servicos Preliminares", "Fundacao", "Piso", "Laje", "Alvenaria", "Cobertura", "Revestimentos", "Limpeza", "Entrega"],
+        "Sobrado": ["Servicos Preliminares", "Fundacao", "Piso", "Laje", "Alvenaria", "Cobertura", "Revestimentos", "Limpeza", "Entrega"],
         "Barracao": ["Servicos Preliminares", "Fundacao", "Piso", "Alvenaria", "Estrutura Metalica", "Cobertura", "Revestimentos", "Limpeza", "Entrega"],
-        "Reforma": ["Servicos Preliminares", "Alvenaria", "Revestimentos", "Limpeza", "Entrega"],
+        "Reforma": ["Servicos Preliminares", "Alvenaria", "Laje", "Revestimentos", "Limpeza", "Entrega"],
         "Fundacao": ["Servicos Preliminares", "Fundacao", "Entrega"],
         "Estrutura metalica": ["Servicos Preliminares", "Fundacao", "Estrutura Metalica", "Cobertura", "Entrega"]
       };
@@ -600,6 +609,9 @@
         { test: item => item.name.includes("cinta intermediaria"), value: 6800 },
         { test: item => item.name.includes("5,00 m"), value: 9800 },
         { test: item => item.name.includes("cintamento superior"), value: 7200 },
+        { test: item => item.discipline === "Laje" && item.name.includes("escoramento"), value: 6200 },
+        { test: item => item.discipline === "Laje" && item.name.includes("armadura"), value: 4800 },
+        { test: item => item.discipline === "Laje" && item.name.includes("concretagem"), value: 5200 },
         { test: item => item.discipline === "Estrutura Metalica" && item.name.includes("tesouras"), value: 7250 },
         { test: item => item.discipline === "Estrutura Metalica" && item.name.includes("tercas"), value: 7250 },
         { test: item => item.discipline === "Cobertura", value: 3600 },
@@ -612,6 +624,7 @@
         "Servicos Preliminares": ["locacao", "gabarito", "marcacao", "canteiro"],
         "Fundacao": ["baldrame", "broca", "fundacao", "escavacao", "armadura", "concreto"],
         "Piso": ["contrapiso", "piso", "concretagem"],
+        "Laje": ["laje", "escoramento", "forma", "armadura", "concretagem"],
         "Alvenaria": ["alvenaria", "bloco", "fiada", "cinta"],
         "Estrutura Metalica": ["estrutura metalica", "tesoura metalica", "terca metalica"],
         "Cobertura": ["cobertura", "telha", "rufo", "calha"],
@@ -823,6 +836,50 @@
         return String(value || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       }
 
+      function lajeLabel(value) {
+        return {
+          sem_laje: "Sem laje",
+          pre_moldada: "Laje pre-moldada",
+          trelicada: "Laje trelicada",
+          macica: "Laje macica",
+          steel_deck: "Steel deck"
+        }[value || "sem_laje"] || "Sem laje";
+      }
+
+      function crewSize(crew = "") {
+        const numbers = String(crew).match(/\d+/g);
+        if (numbers?.length) return numbers.reduce((sum, value) => sum + Number(value || 0), 0) || 1;
+        if (normalizeText(crew).includes("equipe")) return 3;
+        return 1;
+      }
+
+      function lajeCostFactor(lajeTipo = "sem_laje") {
+        return {
+          pre_moldada: 1,
+          trelicada: 1.08,
+          macica: 1.22,
+          steel_deck: 1.3
+        }[lajeTipo] || 1;
+      }
+
+      function lajeProductivityFactor(lajeTipo = "sem_laje") {
+        return {
+          pre_moldada: 1,
+          trelicada: 0.95,
+          macica: 0.75,
+          steel_deck: 1.2
+        }[lajeTipo] || 1;
+      }
+
+      function adjustedProductivity(activity, obra = {}) {
+        const base = Number(activity.productivity || 1);
+        const equipePrevista = Number(obra.equipePrevista || 0);
+        const lajeFactor = activity.discipline === "Laje" ? lajeProductivityFactor(obra.lajeTipo) : 1;
+        if (!equipePrevista || activity.unit === "dia") return Number((base * lajeFactor).toFixed(2));
+        const factor = Math.max(0.65, Math.min(2.5, equipePrevista / Math.max(1, crewSize(activity.crew))));
+        return Number((base * factor * lajeFactor).toFixed(2));
+      }
+
       function getControle(obraId) {
         if (!obraId) return { gastos: [], projetos: [], fotos: [], alocados: [], percentual: 0, resumo: "", status: "", engenhariaPlano: [] };
         db.controles[obraId] = db.controles[obraId] || { gastos: [], projetos: [], fotos: [], alocados: [], percentual: 0, resumo: "", status: "", engenhariaPlano: [] };
@@ -910,7 +967,7 @@
       function recalcActivityLabor(item) {
         const quantity = Math.max(0, Number(item.quantity || item.qty || 0));
         const baseReference = referenceUnitValueForActivity(item);
-        const candidateUnitValue = Number(item.referenceUnitValue || item.laborUnitValue || 0);
+        const candidateUnitValue = Number(item.referenceBaseUnitValue || item.referenceUnitValue || item.laborUnitValue || 0);
         const candidateSource = String(item.referenceSource || "");
         const candidateSourceNormalized = candidateSource.toLowerCase();
         const candidateLooksSafe = candidateUnitValue > 0
@@ -926,13 +983,16 @@
               description: item.referenceDescription || ""
             }
           : baseReference;
+        const typeFactor = item.discipline === "Laje" ? lajeCostFactor(item.lajeTipo) : 1;
+        const unitValue = reference.unitValue * typeFactor;
         const bdiPercent = Number(item.bdiPercent ?? defaultBdiPercent);
-        const laborCostValue = quantity * reference.unitValue;
+        const laborCostValue = quantity * unitValue;
         const bdiValue = laborCostValue * Math.max(0, bdiPercent) / 100;
         return {
           ...item,
           bdiPercent,
-          referenceUnitValue: reference.unitValue,
+          referenceBaseUnitValue: reference.unitValue,
+          referenceUnitValue: unitValue,
           referenceSource: reference.source,
           referenceCode: reference.code,
           referenceDescription: reference.description,
@@ -964,6 +1024,9 @@
         const peDireitoSuperior = Number(obra.peDireitoSuperior || 0) || (areaSuperior > 0 ? 2.8 : 0);
         const areaCobertura = Number(obra.areaCobertura || 0) || (areaTerrea > 0 ? areaTerrea * 1.12 : 0);
         const totalArea = areaTerrea + areaSuperior;
+        const lajeTipo = obra.lajeTipo || "sem_laje";
+        const areaLaje = lajeTipo === "sem_laje" ? 0 : Number(obra.areaLaje || 0) || areaSuperior || areaTerrea || totalArea;
+        const equipePrevista = Number(obra.equipePrevista || 0);
         const pavimentos = areaSuperior > 0 || obra.tipo === "Sobrado" ? 2 : 1;
         const wallArea = perimetro > 0 ? (perimetro * peDireito) + (pavimentos > 1 ? perimetro * peDireitoSuperior : 0) : 0;
         return {
@@ -974,6 +1037,9 @@
           peDireito,
           peDireitoSuperior,
           areaCobertura,
+          lajeTipo,
+          areaLaje,
+          equipePrevista,
           pavimentos,
           wallArea,
           fundacao: obra.fundacao || "baldrame"
@@ -994,6 +1060,7 @@
         if (activity.discipline === "Fundacao" && activity.unit === "m") return metrics.fundacao === "radier" ? 0 : metrics.perimetro || activity.qty;
         if (activity.discipline === "Fundacao" && activity.unit === "m2") return metrics.areaTerrea || activity.qty;
         if (activity.discipline === "Piso") return metrics.totalArea || activity.qty;
+        if (activity.discipline === "Laje") return metrics.lajeTipo === "sem_laje" ? 0 : metrics.areaLaje || activity.qty;
         if (activity.code === "ECB-060101") return metrics.perimetro ? metrics.perimetro * metrics.pavimentos : activity.qty;
         if (activity.code === "ECB-060102") return metrics.perimetro ? metrics.perimetro * 0.5 * metrics.pavimentos : activity.qty;
         if (activity.code === "ECB-060201") return metrics.perimetro ? metrics.perimetro * Math.min(metrics.peDireito, 2.5) : activity.qty;
@@ -1020,13 +1087,33 @@
             unit: item.unit,
             quantity: getQuantityByObraMetragem(item, obra),
             crew: item.crew,
-            productivity: item.productivity,
+            productivityBase: item.productivity,
+            productivity: adjustedProductivity(item, obra),
+            equipePrevista: Number(obra?.equipePrevista || 0),
+            lajeTipo: obra?.lajeTipo || "sem_laje",
             source: item.source,
             status: "Nao iniciado",
             percent: 0,
             measured: 0,
             paidValue: 0
           }));
+      }
+
+      function rebuildEngineeringPlanPreserving(obra, currentPlan = []) {
+        const currentByCode = new Map((currentPlan || []).map(item => [item.code, item]));
+        return buildEngineeringPlan(obra).map(item => {
+          const previous = currentByCode.get(item.code);
+          return previous ? recalcActivityLabor({
+            ...item,
+            id: previous.id || item.id,
+            status: previous.status || item.status,
+            percent: Number(previous.percent || 0),
+            measured: Number(previous.measured || 0),
+            paidValue: Number(previous.paidValue || 0),
+            referenceUnitValue: previous.referenceBaseUnitValue || previous.referenceUnitValue || item.referenceUnitValue,
+            bdiPercent: previous.bdiPercent ?? item.bdiPercent
+          }) : item;
+        });
       }
 
       function saveEngineeringPlanFromInputs(obraId) {
@@ -1039,7 +1126,7 @@
           const status = row.querySelector("[data-plan-status]")?.value || item.status;
           const percentByMeasured = quantity > 0 ? Math.round((measured / quantity) * 100) : 0;
           const percent = Math.max(0, Math.min(100, Number(row.querySelector("[data-plan-percent]")?.value || percentByMeasured)));
-          const referenceUnitValue = Number(row.querySelector("[data-plan-unit-value]")?.value || item.referenceUnitValue || item.laborUnitValue || 0);
+          const referenceUnitValue = Number(row.querySelector("[data-plan-unit-value]")?.value || item.referenceBaseUnitValue || item.referenceUnitValue || item.laborUnitValue || 0);
           const bdiPercent = Math.max(0, Number(row.querySelector("[data-plan-bdi]")?.value || item.bdiPercent || defaultBdiPercent));
           const paidValue = Number(row.querySelector("[data-plan-paid]")?.value || 0);
           return recalcActivityLabor({ ...item, quantity, measured, status, percent, referenceUnitValue, bdiPercent, paidValue });
@@ -1370,7 +1457,8 @@
         const rows = db.obras.map(o => {
           const metrics = getObraMetragem(o);
           const metragem = metrics.totalArea || metrics.perimetro ? `${metrics.totalArea || 0} m2 | ${metrics.perimetro || 0} m linear` : "Metragem nao informada";
-          return `<tr><td><strong>${escapeHtml(o.nome)}</strong><br><span class="muted">${escapeHtml(o.tipo)} - ${escapeHtml(metragem)}</span></td><td>${escapeHtml(o.cliente || "-")}<br><span class="muted">Usuario cliente: ${escapeHtml(o.clienteUsuario || "-")}</span></td><td>${escapeHtml(o.endereco || "-")}</td><td>${escapeHtml(o.status)}<br>${escapeHtml(o.inicio || "Sem data")}</td><td><button type="button" onclick="editObra('${o.id}')">Editar</button> <button type="button" onclick="abrirControleObra('${o.id}')">Controle</button> <button class="danger" type="button" onclick="deleteObra('${o.id}')">Excluir</button></td></tr>`;
+          const detalhes = `${escapeHtml(o.tipo)} - ${escapeHtml(metragem)}<br>Laje: ${escapeHtml(lajeLabel(o.lajeTipo))}${metrics.areaLaje ? ` (${formatNumber(metrics.areaLaje)} m2)` : ""}<br>Equipe prevista: ${metrics.equipePrevista || "-"} funcionario(s)`;
+          return `<tr><td><strong>${escapeHtml(o.nome)}</strong><br><span class="muted">${detalhes}</span></td><td>${escapeHtml(o.cliente || "-")}<br><span class="muted">Usuario cliente: ${escapeHtml(o.clienteUsuario || "-")}</span></td><td>${escapeHtml(o.endereco || "-")}</td><td>${escapeHtml(o.status)}<br>${escapeHtml(o.inicio || "Sem data")}</td><td><button type="button" onclick="editObra('${o.id}')">Editar</button> <button type="button" onclick="abrirControleObra('${o.id}')">Controle</button> <button class="danger" type="button" onclick="deleteObra('${o.id}')">Excluir</button></td></tr>`;
         }).join("");
         byId("obrasTabela").innerHTML = rows ? `<table><thead><tr><th>Obra</th><th>Cliente</th><th>Endereco</th><th>Status</th><th>Acoes</th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">Nenhuma obra cadastrada.</div>`;
       }
@@ -1400,6 +1488,9 @@
         byId("controleObraPeDireitoSuperior").value = obra?.peDireitoSuperior || "";
         byId("controleObraAreaCobertura").value = obra?.areaCobertura || "";
         byId("controleObraFundacao").value = obra?.fundacao || "baldrame";
+        byId("controleObraLajeTipo").value = obra?.lajeTipo || "sem_laje";
+        byId("controleObraAreaLaje").value = obra?.areaLaje || "";
+        byId("controleObraEquipePrevista").value = obra?.equipePrevista || "";
         byId("controleObraClienteUsuario").value = obra?.clienteUsuario || "";
         byId("controleObraClienteSenha").value = obra?.clienteSenha || "";
         renderControleAlocados(obraId);
@@ -1429,7 +1520,9 @@
           const laborCostValue = Number(item.laborCostValue || 0);
           const bdiPercent = Number(item.bdiPercent ?? defaultBdiPercent);
           const bdiValue = Number(item.bdiValue || 0);
-          const unitWithBdi = Number(item.referenceUnitValue || 0) * (1 + Math.max(0, bdiPercent) / 100);
+          const unitBase = Number(item.referenceBaseUnitValue || item.referenceUnitValue || 0);
+          const unitAdjusted = Number(item.referenceUnitValue || unitBase);
+          const unitWithBdi = unitAdjusted * (1 + Math.max(0, bdiPercent) / 100);
           const measuredValue = laborValue * Math.max(0, Math.min(100, Number(item.percent || 0))) / 100;
           const paidValue = Number(item.paidValue || 0);
           const overpaidClass = paidValue > measuredValue ? ` style="background:#fff2f2"` : "";
@@ -1441,7 +1534,7 @@
             <td>${planDays(item)} dia(s)</td>
             <td><input data-plan-measured type="number" min="0" step="0.01" value="${Number(item.measured || 0)}" style="max-width:90px" /></td>
             <td><input data-plan-percent type="number" min="0" max="100" value="${Number(item.percent || 0)}" style="max-width:72px" />%</td>
-            <td><input data-plan-unit-value type="number" min="0" step="0.01" value="${Number(item.referenceUnitValue || 0).toFixed(2)}" style="max-width:110px" /> / ${escapeHtml(item.unit)}<br><span class="muted">${escapeHtml(item.referenceSource || "Base")} ${escapeHtml(item.referenceCode || "")}</span><br><span class="muted">BDI <input data-plan-bdi type="number" min="0" step="0.01" value="${bdiPercent.toFixed(2)}" style="display:inline-block; max-width:72px; padding:5px" />% | Unit. c/ BDI: ${money(unitWithBdi)}</span><br><span class="muted">Custo: ${money(laborCostValue)} | BDI: ${money(bdiValue)}</span><br><span class="muted">Total c/ BDI: ${money(laborValue)} | Medido: ${money(measuredValue)}</span></td>
+            <td><input data-plan-unit-value type="number" min="0" step="0.01" value="${unitBase.toFixed(2)}" style="max-width:110px" /> / ${escapeHtml(item.unit)}<br><span class="muted">${escapeHtml(item.referenceSource || "Base")} ${escapeHtml(item.referenceCode || "")}</span>${item.discipline === "Laje" ? `<br><span class="muted">${escapeHtml(lajeLabel(item.lajeTipo))}: unit. ajustado ${money(unitAdjusted)}</span>` : ""}<br><span class="muted">BDI <input data-plan-bdi type="number" min="0" step="0.01" value="${bdiPercent.toFixed(2)}" style="display:inline-block; max-width:72px; padding:5px" />% | Unit. c/ BDI: ${money(unitWithBdi)}</span><br><span class="muted">Custo: ${money(laborCostValue)} | BDI: ${money(bdiValue)}</span><br><span class="muted">Total c/ BDI: ${money(laborValue)} | Medido: ${money(measuredValue)}</span></td>
             <td><input data-plan-paid type="number" min="0" step="0.01" value="${paidValue.toFixed(2)}" style="max-width:110px" /><br><span class="muted">Saldo: ${money(Math.max(0, laborValue - paidValue))}</span></td>
             <td><select data-plan-status>
               ${["Nao iniciado", "Em execucao", "Aguardando vistoria", "Aprovado para medicao", "Medido", "Concluido", "Pago"].map(status => `<option ${item.status === status ? "selected" : ""}>${status}</option>`).join("")}
@@ -1779,6 +1872,9 @@
           peDireitoSuperior: Number(byId("obraPeDireitoSuperior").value || 0),
           areaCobertura: Number(byId("obraAreaCobertura").value || 0),
           fundacao: byId("obraFundacao").value,
+          lajeTipo: byId("obraLajeTipo").value,
+          areaLaje: Number(byId("obraAreaLaje").value || 0),
+          equipePrevista: Number(byId("obraEquipePrevista").value || 0),
           clienteUsuario: byId("obraClienteUsuario").value || existing?.clienteUsuario || "",
           clienteSenha: byId("obraClienteSenha").value || existing?.clienteSenha || ""
         };
@@ -1786,10 +1882,12 @@
         if (index >= 0) db.obras[index] = item;
         else db.obras.push(item);
         const controle = getControle(id);
-        if (!controle.engenhariaPlano.length && (item.areaTerrea || item.areaSuperior || item.perimetro || item.areaCobertura)) {
+        if (!controle.engenhariaPlano.length && (item.areaTerrea || item.areaSuperior || item.perimetro || item.areaCobertura || item.areaLaje)) {
           controle.engenhariaPlano = buildEngineeringPlan(item);
           controle.percentual = 0;
           controle.status = item.status;
+        } else if (controle.engenhariaPlano.length) {
+          controle.engenhariaPlano = rebuildEngineeringPlanPreserving(item, controle.engenhariaPlano);
         }
         byId("obraForm").reset();
         byId("obraId").value = "";
@@ -1820,6 +1918,9 @@
         obra.peDireitoSuperior = Number(byId("controleObraPeDireitoSuperior").value || 0);
         obra.areaCobertura = Number(byId("controleObraAreaCobertura").value || 0);
         obra.fundacao = byId("controleObraFundacao").value;
+        obra.lajeTipo = byId("controleObraLajeTipo").value;
+        obra.areaLaje = Number(byId("controleObraAreaLaje").value || 0);
+        obra.equipePrevista = Number(byId("controleObraEquipePrevista").value || 0);
         obra.clienteUsuario = byId("controleObraClienteUsuario").value;
         obra.clienteSenha = byId("controleObraClienteSenha").value;
         if (previousType !== obra.tipo && getControle(obraId).engenhariaPlano.length) {
@@ -1827,14 +1928,7 @@
         }
         const controle = getControle(obraId);
         if (controle.engenhariaPlano.length) {
-          controle.engenhariaPlano = controle.engenhariaPlano
-            .map(item => {
-              const activity = ECB_PRODUCTIVITY_MASTER.find(base => base.code === item.code);
-              if (!activity) return item;
-              const quantity = getQuantityByObraMetragem(activity, obra);
-              return quantity > 0 ? recalcActivityLabor({ ...item, quantity }) : null;
-            })
-            .filter(Boolean);
+          controle.engenhariaPlano = rebuildEngineeringPlanPreserving(obra, controle.engenhariaPlano);
         }
         save();
         renderAll();
@@ -1860,14 +1954,7 @@
           alert("Gere o plano da obra primeiro.");
           return;
         }
-        controle.engenhariaPlano = controle.engenhariaPlano
-          .map(item => {
-            const activity = ECB_PRODUCTIVITY_MASTER.find(base => base.code === item.code);
-            if (!activity || !obra) return item;
-            const quantity = getQuantityByObraMetragem(activity, obra);
-            return quantity > 0 ? recalcActivityLabor({ ...item, quantity }) : null;
-          })
-          .filter(Boolean);
+        controle.engenhariaPlano = rebuildEngineeringPlanPreserving(obra, controle.engenhariaPlano);
         save();
         renderAll();
       });
@@ -2075,6 +2162,9 @@
         byId("obraPeDireitoSuperior").value = o.peDireitoSuperior || "";
         byId("obraAreaCobertura").value = o.areaCobertura || "";
         byId("obraFundacao").value = o.fundacao || "baldrame";
+        byId("obraLajeTipo").value = o.lajeTipo || "sem_laje";
+        byId("obraAreaLaje").value = o.areaLaje || "";
+        byId("obraEquipePrevista").value = o.equipePrevista || "";
         byId("obraClienteUsuario").value = o.clienteUsuario || "";
         byId("obraClienteSenha").value = o.clienteSenha || "";
         document.querySelector('[data-view="admin"]').click();
