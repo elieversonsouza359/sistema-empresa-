@@ -946,6 +946,42 @@
         URL.revokeObjectURL(url);
       }
 
+      function printHtmlDocument(html) {
+        const frame = document.createElement("iframe");
+        frame.title = "Exportacao PDF";
+        frame.style.position = "fixed";
+        frame.style.right = "0";
+        frame.style.bottom = "0";
+        frame.style.width = "0";
+        frame.style.height = "0";
+        frame.style.border = "0";
+        frame.style.opacity = "0";
+        document.body.append(frame);
+
+        const frameWindow = frame.contentWindow;
+        const frameDocument = frame.contentDocument || frameWindow.document;
+        frameDocument.open();
+        frameDocument.write(html);
+        frameDocument.close();
+
+        let didPrint = false;
+        const cleanup = () => setTimeout(() => frame.remove(), 1000);
+        const runPrint = () => {
+          if (didPrint) return;
+          didPrint = true;
+          try {
+            frameWindow.focus();
+            frameWindow.print();
+            cleanup();
+          } catch (error) {
+            frame.remove();
+            alert("Nao foi possivel abrir a impressao. Use Ctrl+P e escolha 'Salvar como PDF'.");
+          }
+        };
+        frame.onload = () => setTimeout(runPrint, 250);
+        setTimeout(runPrint, 700);
+      }
+
       function exportCronogramaPdf() {
         const obraId = selectedObraControleId();
         const obra = db.obras.find(o => o.id === obraId);
@@ -1004,17 +1040,9 @@
                 <thead><tr><th>#</th><th>Atividade</th><th>Qtd.</th><th>Dias</th><th>%</th><th>Status</th><th>MO prevista</th><th>MO medida</th><th>Saldo</th></tr></thead>
                 <tbody>${tableRows}</tbody>
               </table>
-              <script>window.onload = () => { window.print(); };<\/script>
             </body>
           </html>`;
-        const win = window.open("", "_blank");
-        if (!win) {
-          alert("Permita pop-ups para exportar o PDF.");
-          return;
-        }
-        win.document.open();
-        win.document.write(html);
-        win.document.close();
+        printHtmlDocument(html);
       }
 
       function getClienteObraLogada() {
