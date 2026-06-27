@@ -424,7 +424,7 @@
 
           <div class="card">
             <h3>Funcionarios alocados</h3>
-            <p class="muted">Marque quem esta trabalhando nesta obra. Tambem aparecem registros de ponto vinculados a ela.</p>
+            <p class="muted">Marque quem esta trabalhando nesta obra. A marcacao salva automaticamente e aparece na area do cliente.</p>
             <div id="controleAlocados" class="grid cols-3" style="margin-top:10px"></div>
           </div>
 
@@ -1370,6 +1370,15 @@
         byId("controleAlocados").innerHTML = html || `<div class="empty">Nenhum funcionario cadastrado.</div>`;
       }
 
+      function salvarControleAlocados(obraId) {
+        if (!obraId) return;
+        const controle = getControle(obraId);
+        controle.alocados = Array.from(document.querySelectorAll("[data-alocado]:checked")).map(input => input.dataset.alocado);
+        controle.atualizadoEm = new Date().toLocaleString("pt-BR");
+        save();
+        renderClienteArea();
+      }
+
       function renderControleListas(obraId) {
         const controle = getControle(obraId);
         const gastos = controle.gastos.slice().reverse();
@@ -1677,6 +1686,10 @@
       });
 
       byId("controleObraSelect").addEventListener("change", renderControleObra);
+      byId("controleAlocados").addEventListener("change", e => {
+        if (!e.target.matches("[data-alocado]")) return;
+        salvarControleAlocados(selectedObraControleId());
+      });
       byId("controleObraDadosForm").addEventListener("submit", e => {
         e.preventDefault();
         const obraId = selectedObraControleId();
@@ -1761,7 +1774,7 @@
         controle.status = byId("controleStatus").value;
         controle.resumo = byId("controleResumo").value;
         controle.atualizadoEm = new Date().toLocaleString("pt-BR");
-        controle.alocados = Array.from(document.querySelectorAll("[data-alocado]:checked")).map(input => input.dataset.alocado);
+        salvarControleAlocados(obraId);
         obra.status = controle.status;
         save();
         renderAll();
