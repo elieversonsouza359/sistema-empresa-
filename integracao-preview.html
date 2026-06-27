@@ -1310,6 +1310,15 @@
         renderAll();
       }
 
+      function concluirPrimeiroAcesso() {
+        byId("primeiroAcessoFormPonto").classList.add("hidden");
+        byId("primeiroAcessoFormPortal").classList.add("hidden");
+        byId("pontoPanel").classList.toggle("hidden", location.hash !== "#ponto");
+        byId("portalPanel").classList.toggle("hidden", location.hash !== "#colaborador");
+        byId("colabSessionStatusPonto").classList.toggle("hidden", location.hash !== "#ponto");
+        byId("colabSessionStatusPortal").classList.toggle("hidden", location.hash !== "#colaborador");
+      }
+
       function salvarNovaSenha(novaSenha, confirmaSenha, messageId) {
         const c = getColaboradorLogado();
         if (!c) {
@@ -1318,23 +1327,30 @@
         }
         if (novaSenha !== confirmaSenha) {
           byId(messageId).textContent = "As senhas nao conferem.";
+          alert("As senhas nao conferem.");
           return;
         }
         if (novaSenha === senhaPadraoColaborador) {
           byId(messageId).textContent = "Escolha uma senha diferente da senha padrao.";
+          alert("Escolha uma senha diferente da senha padrao 123456.");
           return;
         }
         if (novaSenha.length < 4) {
           byId(messageId).textContent = "A nova senha precisa ter pelo menos 4 caracteres.";
+          alert("A nova senha precisa ter pelo menos 4 caracteres.");
           return;
         }
         c.senha = novaSenha;
         c.primeiroAcesso = false;
+        colaboradorLogadoId = c.id;
+        localStorage.setItem(colaboradorSessionKey, c.id);
         save();
         byId("primeiroAcessoFormPonto").reset();
         byId("primeiroAcessoFormPortal").reset();
-        byId(messageId).textContent = "";
+        byId("primeiroAcessoMsgPonto").textContent = "";
+        byId("primeiroAcessoMsgPortal").textContent = "";
         renderAll();
+        concluirPrimeiroAcesso();
       }
 
       byId("pontoLoginForm").addEventListener("submit", e => {
