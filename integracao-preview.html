@@ -459,8 +459,6 @@
       </section>
     </main>
 
-    <script src="_ecorp_site_zip/client/public/orcamentos/sinapi-data.js"></script>
-    <script src="_ecorp_site_zip/client/public/orcamentos/cdhu-data.js"></script>
     <script>
       const storeKey = "ecorp-operacional-preview-v1";
       const adminSessionKey = "ecorp-admin-auth-preview";
@@ -692,15 +690,6 @@
       }
 
       function referenceUnitValueForActivity(item) {
-        const service = findReferenceService(item);
-        if (service) {
-          return {
-            unitValue: Number(service.price || 0),
-            source: service.source || service.type || "Base de referencia",
-            code: service.code || service.originalCode || "",
-            description: service.description || ""
-          };
-        }
         const quantity = Math.max(1, Number(item.quantity || item.qty || 1));
         const fallback = laborValueForActivity(item) / quantity;
         return {
@@ -721,14 +710,21 @@
 
       function recalcActivityLabor(item) {
         const quantity = Math.max(0, Number(item.quantity || item.qty || 0));
-        const reference = Number(item.referenceUnitValue || item.laborUnitValue || 0) > 0
+        const baseReference = referenceUnitValueForActivity(item);
+        const candidateUnitValue = Number(item.referenceUnitValue || item.laborUnitValue || 0);
+        const candidateSource = String(item.referenceSource || "");
+        const candidateLooksSafe = candidateUnitValue > 0
+          && candidateUnitValue <= baseReference.unitValue * 8
+          && !candidateSource.includes("SINAPI")
+          && !candidateSource.includes("CDHU");
+        const reference = candidateLooksSafe
           ? {
-              unitValue: Number(item.referenceUnitValue || item.laborUnitValue),
-              source: item.referenceSource || "Base de referencia",
+              unitValue: candidateUnitValue,
+              source: candidateSource || "Referencia ECB ajustada",
               code: item.referenceCode || "",
               description: item.referenceDescription || ""
             }
-          : referenceUnitValueForActivity(item);
+          : baseReference;
         return {
           ...item,
           referenceUnitValue: reference.unitValue,
