@@ -77,6 +77,13 @@
       .checks label { align-items: center; display: flex; gap: 8px; font-weight: 700; }
       .checks input { width: auto; }
       .access-menu { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+      .tutorial-layer { background: rgba(10, 18, 13, 0.48); inset: 0; position: fixed; z-index: 80; }
+      .tutorial-spotlight { border: 3px solid #f5c542; border-radius: 10px; box-shadow: 0 0 0 9999px rgba(10, 18, 13, 0.48), 0 0 22px rgba(245, 197, 66, 0.75); left: 0; pointer-events: none; position: fixed; top: 0; transition: all 0.18s ease; z-index: 90; }
+      .tutorial-box { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 18px 50px rgba(10, 18, 13, 0.28); display: grid; gap: 10px; max-width: min(420px, calc(100vw - 24px)); padding: 16px; position: fixed; z-index: 95; }
+      .tutorial-box h3 { color: var(--brand-dark); font-size: 1.06rem; }
+      .tutorial-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; }
+      .tutorial-actions div { display: flex; gap: 8px; }
+      .tutorial-progress { color: var(--muted); font-size: 0.82rem; font-weight: 700; }
       #ecorpPrintArea { display: none; }
       @media print {
         body { background: #fff; }
@@ -105,6 +112,7 @@
         nav, .grid.cols-3, .grid.cols-2 { grid-template-columns: 1fr; }
         .checks { grid-template-columns: 1fr; }
         .admin-row-info { grid-template-columns: 1fr; }
+        .tutorial-box { bottom: 10px !important; left: 10px !important; right: 10px !important; top: auto !important; }
       }
     </style>
   </head>
@@ -123,6 +131,7 @@
           <button class="tab" data-view="ponto">Registro de Ponto</button>
           <button class="tab" data-view="cliente">Area do Cliente</button>
           <button class="tab" data-view="materiais">Materiais</button>
+          <button type="button" id="tutorialBtn">Tutorial</button>
         </nav>
       </div>
     </header>
@@ -542,6 +551,21 @@
       </section>
     </main>
 
+    <div id="tutorialLayer" class="tutorial-layer hidden"></div>
+    <div id="tutorialSpotlight" class="tutorial-spotlight hidden"></div>
+    <div id="tutorialBox" class="tutorial-box hidden" role="dialog" aria-live="polite" aria-label="Tutorial do sistema">
+      <span class="tutorial-progress" id="tutorialProgress">1/1</span>
+      <h3 id="tutorialTitle">Tutorial</h3>
+      <p class="muted" id="tutorialText"></p>
+      <div class="tutorial-actions">
+        <button type="button" id="tutorialClose">Fechar</button>
+        <div>
+          <button type="button" id="tutorialPrev">Voltar</button>
+          <button class="primary" type="button" id="tutorialNext">Proximo</button>
+        </div>
+      </div>
+    </div>
+
     <script>
       const storeKey = "ecorp-operacional-preview-v1";
       const adminSessionKey = "ecorp-admin-auth-preview";
@@ -661,6 +685,141 @@
       const formatNumber = value => Number(value || 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
       const byId = id => document.getElementById(id);
       const escapeHtml = value => String(value || "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
+      const tutorialState = { active: false, index: 0, steps: [] };
+      const tutorialStepsByView = {
+        operacao: [
+          { selector: "#operacao .hero", title: "Painel de operacao", text: "Aqui fica a visao geral da empresa: equipe, obras, pontos, orcamentos e materiais em um resumo rapido." },
+          { selector: "#operacao .grid.cols-3", title: "Indicadores principais", text: "Estes cartoes mostram totais cadastrados e ajudam a acompanhar se o sistema esta sendo alimentado corretamente." }
+        ],
+        ponto: [
+          { selector: "#pontoLoginForm", title: "Entrada do funcionario", text: "O funcionario entra com CPF e senha. No primeiro acesso a senha padrao e 123456, depois ele cria uma senha nova." },
+          { selector: "#pontoForm", title: "Registro de ponto", text: "Depois do login, selecione a obra, escolha entrada ou saida e registre o ponto. O sistema tenta guardar a localizacao junto do registro." },
+          { selector: "#pontosLista", title: "Historico de ponto", text: "Aqui ficam os registros feitos, com obra, data, localizacao e status de sincronizacao." }
+        ],
+        admin: [
+          { selector: "#adminLoginForm", title: "Acesso do administrador", text: "Entre com o usuario ADM para liberar cadastros, obras e configuracoes internas." },
+          { selector: "#adminPanel > .card:first-child", title: "Sub menu administrativo", text: "Use estes botoes para entrar em Operacao, Controle de Obra e Orcamentos. Essas areas ficam protegidas para ADM ou funcionario autorizado." },
+          { selector: "#colabForm", title: "Cadastro de funcionario", text: "Cadastre nome, CPF, telefone, contrato, valor e funcao. O CPF vira o login do colaborador." },
+          { selector: "#colabForm .checks", title: "Permissoes do funcionario", text: "Marque ate onde cada funcionario pode acessar o sistema. Registro de ponto fica liberado para todos os cadastrados." },
+          { selector: "#obraForm", title: "Cadastro da obra", text: "Informe cliente, metragem, fundacao, laje, equipe prevista e acesso do cliente. Esses dados alimentam controle, cronograma e area do cliente." },
+          { selector: "#colabsTabela", title: "Funcionarios cadastrados", text: "Nesta lista voce edita, exclui ou redefine a senha de um funcionario quando necessario." },
+          { selector: "#obrasTabela", title: "Obras cadastradas", text: "Aqui voce abre o controle da obra, edita dados ou exclui uma obra cadastrada." }
+        ],
+        controleObra: [
+          { selector: "#controleObraSelect", title: "Escolha da obra", text: "Selecione a obra que deseja controlar. Todas as informacoes abaixo passam a valer para essa obra." },
+          { selector: "#controleResumo", title: "Resumo para o cliente", text: "Escreva um resumo simples do andamento. Esse texto aparece na Area do Cliente." },
+          { selector: "#controleObraDadosForm", title: "Dados tecnicos da obra", text: "Ajuste metragem, pe-direito, fundacao, laje e equipe prevista. O cronograma usa esses dados no recalculo." },
+          { selector: "#gerarPlanoEngenharia", title: "Gerar plano da obra", text: "Este botao cria o plano de engenharia com etapas, produtividade, prazos e mao de obra prevista." },
+          { selector: "#controlePlanoLista", title: "Medicoes e pagamentos", text: "Depois do plano gerado, voce registra quantidade medida, percentual, valores pagos e status de cada etapa." },
+          { selector: "#controleGastoForm", title: "Lancamento de NFe", text: "Registre compras e notas da obra para formar o historico de custos." },
+          { selector: "#controleProjetoForm", title: "Projetos anexados", text: "Guarde os PDFs de projeto da obra para consulta futura." },
+          { selector: "#controleFotoForm", title: "Fotos do avanco", text: "Anexe fotos da obra com data e legenda. Elas aparecem no controle e podem aparecer para o cliente." },
+          { selector: "#controleAlocados", title: "Funcionarios alocados", text: "Marque quem esta trabalhando na obra. A informacao salva automaticamente e tambem alimenta a Area do Cliente." }
+        ],
+        cliente: [
+          { selector: "#clienteLoginForm", title: "Login do cliente", text: "O cliente entra com o usuario e senha definidos no cadastro da obra." },
+          { selector: "#clientePanel", title: "Acompanhamento do cliente", text: "Depois do login, o cliente acompanha progresso, gastos, equipe, fotos e etapas liberadas pelo controle da obra." },
+          { selector: "#clienteProgressoBarra", title: "Progresso da obra", text: "Esta barra mostra o percentual atualizado no Controle de Obra." },
+          { selector: "#clienteGastoTotal", title: "Gastos apresentados", text: "O cliente visualiza os gastos lancados, sem mostrar detalhes internos como BDI." }
+        ],
+        orcamentos: [
+          { selector: "#orcamentos .module-head", title: "Modulo de orcamentos", text: "Nesta area voce acessa o orcamento, leitura de projetos, base SINAPI/CDHU e geracao de quantitativos." },
+          { selector: "#orcamentos iframe", title: "Tela integrada", text: "O orcamento roda integrado aqui. Se quiser mais espaco, clique em Abrir em tela cheia." }
+        ],
+        materiais: [
+          { selector: "#materiais .module-head", title: "Banco de materiais", text: "Aqui fica o leitor de NFe e o historico de materiais, fornecedores e precos pagos." },
+          { selector: "#materiais iframe", title: "Tela integrada", text: "Use esta area para importar notas, pesquisar materiais e comparar ultimo preco, preco medio e menor valor." }
+        ]
+      };
+
+      function activeViewId() {
+        return document.querySelector(".view.active")?.id || "admin";
+      }
+
+      function isTutorialTargetVisible(element) {
+        if (!element) return false;
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        return rect.width > 0 && rect.height > 0 && style.display !== "none" && style.visibility !== "hidden";
+      }
+
+      function tutorialTarget(selector) {
+        return [...document.querySelectorAll(selector)].find(isTutorialTargetVisible) || null;
+      }
+
+      function currentTutorialSteps() {
+        const view = activeViewId();
+        const common = [
+          { selector: "#homeLogoBtn", title: "Voltar ao inicio", text: "Clique no logo EC para voltar para a tela inicial do sistema." },
+          { selector: "header nav", title: "Menu principal", text: "Use o menu para acessar Admin, Registro de Ponto, Area do Cliente e Materiais. O tutorial sempre explica a tela em que voce esta." }
+        ];
+        return common.concat(tutorialStepsByView[view] || []).filter(step => tutorialTarget(step.selector));
+      }
+
+      function positionTutorialBox(rect) {
+        const box = byId("tutorialBox");
+        const margin = 12;
+        const preferredTop = rect.bottom + margin;
+        const placeAbove = preferredTop + box.offsetHeight > innerHeight - margin;
+        const top = placeAbove ? Math.max(margin, rect.top - box.offsetHeight - margin) : Math.min(preferredTop, innerHeight - box.offsetHeight - margin);
+        const left = Math.min(Math.max(margin, rect.left), innerWidth - box.offsetWidth - margin);
+        box.style.left = `${left}px`;
+        box.style.top = `${top}px`;
+      }
+
+      function renderTutorialStep() {
+        const step = tutorialState.steps[tutorialState.index];
+        const target = tutorialTarget(step?.selector);
+        if (!step || !target) return closeTutorial();
+        target.scrollIntoView({ block: "center", inline: "center", behavior: "smooth" });
+        setTimeout(() => {
+          const rect = target.getBoundingClientRect();
+          const spotlight = byId("tutorialSpotlight");
+          spotlight.style.left = `${Math.max(8, rect.left - 8)}px`;
+          spotlight.style.top = `${Math.max(8, rect.top - 8)}px`;
+          spotlight.style.width = `${Math.min(innerWidth - 16, rect.width + 16)}px`;
+          spotlight.style.height = `${Math.min(innerHeight - 16, rect.height + 16)}px`;
+          byId("tutorialTitle").textContent = step.title;
+          byId("tutorialText").textContent = step.text;
+          byId("tutorialProgress").textContent = `${tutorialState.index + 1}/${tutorialState.steps.length}`;
+          byId("tutorialPrev").disabled = tutorialState.index === 0;
+          byId("tutorialNext").textContent = tutorialState.index === tutorialState.steps.length - 1 ? "Concluir" : "Proximo";
+          byId("tutorialLayer").classList.remove("hidden");
+          spotlight.classList.remove("hidden");
+          byId("tutorialBox").classList.remove("hidden");
+          positionTutorialBox(rect);
+        }, 240);
+      }
+
+      function startTutorial() {
+        tutorialState.steps = currentTutorialSteps();
+        tutorialState.index = 0;
+        tutorialState.active = true;
+        if (!tutorialState.steps.length) {
+          tutorialState.active = false;
+          alert("Nao encontrei itens visiveis para explicar nesta tela.");
+          return;
+        }
+        renderTutorialStep();
+      }
+
+      function closeTutorial() {
+        tutorialState.active = false;
+        byId("tutorialLayer").classList.add("hidden");
+        byId("tutorialSpotlight").classList.add("hidden");
+        byId("tutorialBox").classList.add("hidden");
+      }
+
+      function nextTutorialStep() {
+        if (tutorialState.index >= tutorialState.steps.length - 1) return closeTutorial();
+        tutorialState.index += 1;
+        renderTutorialStep();
+      }
+
+      function previousTutorialStep() {
+        tutorialState.index = Math.max(0, tutorialState.index - 1);
+        renderTutorialStep();
+      }
 
       function defaultPermissionsForColab(c = {}) {
         const isAdminRole = normalizeText(c.funcao).includes("administrativo");
@@ -1364,6 +1523,7 @@
       function showView(view, options = {}) {
         const adminSubViews = ["operacao", "controleObra", "orcamentos"];
         const restrictedViews = ["operacao", "controleObra", "orcamentos", "materiais"];
+        if (tutorialState.active && !options.keepTutorial) closeTutorial();
         if (restrictedViews.includes(view) && !canAccessRestrictedView(view)) {
           alert("Acesso nao liberado para este usuario. Entre com um funcionario autorizado ou com o ADM.");
           return showView(adminAutenticado ? "admin" : "ponto", { force: true });
@@ -1387,6 +1547,20 @@
         btn.addEventListener("click", () => showView(btn.dataset.view));
       });
       byId("homeLogoBtn").addEventListener("click", () => showView("admin"));
+      byId("tutorialBtn").addEventListener("click", startTutorial);
+      byId("tutorialClose").addEventListener("click", closeTutorial);
+      byId("tutorialNext").addEventListener("click", nextTutorialStep);
+      byId("tutorialPrev").addEventListener("click", previousTutorialStep);
+      byId("tutorialLayer").addEventListener("click", closeTutorial);
+      window.addEventListener("resize", () => {
+        if (tutorialState.active) renderTutorialStep();
+      });
+      document.addEventListener("keydown", event => {
+        if (!tutorialState.active) return;
+        if (event.key === "Escape") closeTutorial();
+        if (event.key === "ArrowRight") nextTutorialStep();
+        if (event.key === "ArrowLeft") previousTutorialStep();
+      });
 
       function renderSelects() {
         const controleAtual = byId("controleObraSelect")?.value || "";
