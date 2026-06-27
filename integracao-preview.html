@@ -65,11 +65,12 @@
       .admin-lock { margin: 0 auto; max-width: 520px; }
       .admin-status { align-items: center; display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
       .admin-list { display: grid; gap: 10px; }
-      .admin-row { align-items: start; border: 1px solid var(--line); border-radius: 8px; display: grid; gap: 12px; grid-template-columns: minmax(180px, 1.4fr) repeat(3, minmax(110px, 1fr)) auto; padding: 12px; }
+      .admin-row { border: 1px solid var(--line); border-radius: 8px; display: grid; gap: 12px; padding: 12px; }
+      .admin-row-info { align-items: start; display: grid; gap: 12px; grid-template-columns: minmax(170px, 1.4fr) repeat(3, minmax(110px, 1fr)); }
       .admin-row + .admin-row { margin-top: 0; }
       .admin-row strong { display: block; line-height: 1.2; }
       .label, .admin-row .label { color: var(--muted); display: block; font-size: 0.78rem; font-weight: 700; margin-bottom: 3px; text-transform: uppercase; }
-      .row-actions { align-items: stretch; display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; min-width: 190px; }
+      .row-actions { align-items: stretch; border-top: 1px solid var(--line); display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-start; padding-top: 10px; }
       .row-actions button { padding: 8px 10px; }
       .checks { align-items: start; display: grid; gap: 8px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .checks label { align-items: center; display: flex; gap: 8px; font-weight: 700; }
@@ -96,14 +97,13 @@
       @media (max-width: 850px) {
         .bar, .hero { align-items: stretch; display: grid; grid-template-columns: 1fr; }
         nav, .grid.cols-3, .grid.cols-2 { grid-template-columns: 1fr 1fr; display: grid; }
-        .admin-row { grid-template-columns: 1fr 1fr; }
-        .row-actions { justify-content: flex-start; min-width: 0; }
+        .admin-row-info { grid-template-columns: 1fr 1fr; }
         iframe { height: 900px; }
       }
       @media (max-width: 560px) {
         nav, .grid.cols-3, .grid.cols-2 { grid-template-columns: 1fr; }
         .checks { grid-template-columns: 1fr; }
-        .admin-row { grid-template-columns: 1fr; }
+        .admin-row-info { grid-template-columns: 1fr; }
       }
     </style>
   </head>
@@ -1261,10 +1261,12 @@
           const accessList = normalizePermissions(c).map(key => permissionConfig.find(item => item.key === key)?.label).filter(Boolean);
           return `
           <div class="admin-row">
-            <div><span class="label">Funcionario</span><strong>${escapeHtml(c.nome)}</strong><span class="muted">${escapeHtml(c.funcao || "-")}</span></div>
-            <div><span class="label">CPF/Login</span>${escapeHtml(c.cpf)}<br><span class="muted">Usuario: CPF</span></div>
-            <div><span class="label">Telefone</span>${escapeHtml(c.telefone || "-")}</div>
-            <div><span class="label">Contrato</span>${escapeHtml(c.contrato || "-")}<br><span class="muted">${money(c.valor)}</span><br><span class="pill">${c.primeiroAcesso ? "Senha padrao" : "Senha cadastrada"}</span><br><span class="muted">Acessos: ${escapeHtml(accessList.join(", ") || "Somente ponto")}</span></div>
+            <div class="admin-row-info">
+              <div><span class="label">Funcionario</span><strong>${escapeHtml(c.nome)}</strong><span class="muted">${escapeHtml(c.funcao || "-")}</span></div>
+              <div><span class="label">CPF/Login</span>${escapeHtml(c.cpf)}<br><span class="muted">Usuario: CPF</span></div>
+              <div><span class="label">Telefone</span>${escapeHtml(c.telefone || "-")}</div>
+              <div><span class="label">Contrato</span>${escapeHtml(c.contrato || "-")}<br><span class="muted">${money(c.valor)}</span><br><span class="pill">${c.primeiroAcesso ? "Senha padrao" : "Senha cadastrada"}</span><br><span class="muted">Acessos: ${escapeHtml(accessList.join(", ") || "Somente ponto")}</span></div>
+            </div>
             <div class="row-actions">
               <button type="button" onclick="editColab('${c.id}')">Editar</button>
               <button type="button" onclick="resetColabSenha('${c.id}')">Resetar senha</button>
