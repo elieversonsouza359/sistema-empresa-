@@ -3,6 +3,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="manifest" href="manifest.webmanifest" />
     <title>E-CORP | Sistema Operacional</title>
     <style>
       :root {
@@ -187,6 +188,7 @@
             <label>Observacao<input id="pontoObs" placeholder="Opcional" /></label>
             <button class="primary" type="submit">Registrar ponto agora</button>
           </form>
+          <p class="muted" id="pontoStatusMsg" style="margin-top:10px"></p>
           <div class="card" style="margin-top:14px">
             <h3>Acessos liberados</h3>
             <p class="muted">Atalhos disponiveis conforme permissao definida pelo administrador.</p>
@@ -634,19 +636,13 @@
       let colaboradorLogadoId = localStorage.getItem(colaboradorSessionKey) || "";
       let clienteObraLogadaId = localStorage.getItem(clienteSessionKey) || "";
       let saveTimer = null;
+      let syncInProgress = false;
+      const persistLocal = () => localStorage.setItem(storeKey, JSON.stringify(db));
       const save = () => {
-        localStorage.setItem(storeKey, JSON.stringify(db));
+        persistLocal();
         if (!apiDisponivel) return;
         clearTimeout(saveTimer);
-        saveTimer = setTimeout(() => {
-          fetch("/api/operacional", {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(db)
-          }).catch(() => {
-            console.warn("Nao foi possivel sincronizar com o servidor. Dados mantidos neste navegador.");
-          });
-        }, 250);
+        saveTimer = setTimeout(syncOnlineDb, 250);
       };
       const money = value => Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
       const formatNumber = value => Number(value || 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
@@ -669,6 +665,10 @@
         db.obras = db.obras && db.obras.length ? db.obras : seed.obras;
         db.pontos = db.pontos || [];
         db.controles = db.controles || {};
+        db.pontos = db.pontos.map(p => ({
+          ...p,
+          syncStatus: p.syncStatus || "synced"
+        }));
         db.colaboradores = db.colaboradores.map(c => ({
           ...c,
           cpfLogin: normalizeCpf(c.cpf),
@@ -678,19 +678,108 @@
         }));
       }
 
+      function mergePendingLocalPontos(onlineDb = {}, localDb = {}) {
+        const onlinePontos = onlineDb.pontos || [];
+        const localPending = (localDb.pontos || []).filter(p => p.syncStatus === "pending");
+        const ids = new Set(onlinePontos.map(p => p.id));
+        return [...onlinePontos, ...localPending.filter(p => !ids.has(p.id))];
+      }
+
+      async function syncOnlineDb() {
+        if (!apiDisponivel || syncInProgress || !navigator.onLine) return false;
+        syncInProgress = true;
+        try {
+          const syncedAt = new Date().toISOString();
+          const payload = JSON.parse(JSON.stringify(db));
+          payload.pontos = (payload.pontos || []).map(p => p.syncStatus === "pending" ? {
+            ...p,
+            syncStatus: "synced",
+            syncedAt
+          } : p);
+          const response = await fetch("/api/operacional", {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+          });
+          if (!response.ok) throw new Error("Falha ao sincronizar com servidor.");
+          db = payload;
+          persistLocal();
+          renderPontos();
+          renderPortal();
+          return true;
+        } catch (error) {
+          console.warn("Nao foi possivel sincronizar com o servidor. Dados mantidos neste navegador.", error);
+          return false;
+        } finally {
+          syncInProgress = false;
+        }
+      }
+
       async function loadOnlineDb() {
         if (!apiDisponivel) return;
         try {
+          const localDb = JSON.parse(localStorage.getItem(storeKey) || "null") || {};
           const response = await fetch("/api/operacional");
           if (!response.ok) return;
           const onlineDb = await response.json();
           if (onlineDb && typeof onlineDb === "object" && Object.keys(onlineDb).length) {
+            onlineDb.pontos = mergePendingLocalPontos(onlineDb, localDb);
             db = onlineDb;
-            localStorage.setItem(storeKey, JSON.stringify(db));
+            persistLocal();
           }
         } catch (error) {
           console.warn("Servidor indisponivel. Abrindo dados locais.");
         }
+      }
+
+      function getCurrentLocation() {
+        if (!navigator.geolocation) {
+          return Promise.resolve({ ok: false, error: "Geolocalizacao nao disponivel neste aparelho." });
+        }
+        return new Promise(resolve => {
+          navigator.geolocation.getCurrentPosition(
+            position => resolve({
+              ok: true,
+              latitude: position.coords.latitude,
+              longitude: position.coords.longitude,
+              accuracy: position.coords.accuracy,
+              capturedAt: new Date().toISOString()
+            }),
+            error => resolve({
+              ok: false,
+              error: error.message || "Localizacao nao autorizada ou indisponivel."
+            }),
+            { enableHighAccuracy: true, maximumAge: 60000, timeout: 12000 }
+          );
+        });
+      }
+
+      function locationLink(location) {
+        if (!location?.ok) return "Sem localizacao";
+        return `<a href="https://www.google.com/maps?q=${location.latitude},${location.longitude}" target="_blank">Ver mapa</a><br><span class="muted">Precisao: ${Math.round(location.accuracy || 0)} m</span>`;
+      }
+
+      function syncLabel(point) {
+        return point.syncStatus === "synced" ? "Sincronizado" : "Pendente";
+      }
+
+      function setupOfflineSync() {
+        window.addEventListener("online", async () => {
+          byId("pontoStatusMsg").textContent = "Internet voltou. Sincronizando pontos pendentes...";
+          const ok = await syncOnlineDb();
+          byId("pontoStatusMsg").textContent = ok ? "Pontos pendentes sincronizados." : "Nao foi possivel sincronizar agora. O sistema tentara novamente.";
+          renderAll();
+        });
+        window.addEventListener("offline", () => {
+          byId("pontoStatusMsg").textContent = "Sem internet. Os pontos serao guardados neste aparelho e enviados depois.";
+        });
+      }
+
+      function registerOfflineApp() {
+        if (!("serviceWorker" in navigator) || !apiDisponivel) return;
+        navigator.serviceWorker.register("ecorp-sw.js").catch(error => {
+          console.warn("Modo offline nao pode ser registrado neste navegador.", error);
+        });
       }
 
       function normalizeCpf(value) {
@@ -1232,9 +1321,9 @@
         const rows = db.pontos.slice().reverse().map(p => {
           const c = db.colaboradores.find(item => item.id === p.colaboradorId);
           const obra = db.obras.find(item => item.id === p.obraId);
-          return `<tr><td>${c ? escapeHtml(c.nome) : "-"}</td><td>${escapeHtml(p.tipo)}</td><td>${escapeHtml(obra ? obra.nome : p.obra)}</td><td>${escapeHtml(p.data)}</td><td>${escapeHtml(p.obs || "-")}</td></tr>`;
+          return `<tr><td>${c ? escapeHtml(c.nome) : "-"}</td><td>${escapeHtml(p.tipo)}</td><td>${escapeHtml(obra ? obra.nome : p.obra)}</td><td>${escapeHtml(p.data)}</td><td>${locationLink(p.localizacao)}</td><td><span class="pill">${syncLabel(p)}</span></td><td>${escapeHtml(p.obs || "-")}</td></tr>`;
         }).join("");
-        byId("pontosLista").innerHTML = rows ? `<table><thead><tr><th>Colaborador</th><th>Tipo</th><th>Obra</th><th>Data/hora</th><th>Obs.</th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">Nenhum ponto registrado ainda.</div>`;
+        byId("pontosLista").innerHTML = rows ? `<table><thead><tr><th>Colaborador</th><th>Tipo</th><th>Obra</th><th>Data/hora</th><th>Localizacao</th><th>Status</th><th>Obs.</th></tr></thead><tbody>${rows}</tbody></table>` : `<div class="empty">Nenhum ponto registrado ainda.</div>`;
       }
 
       function renderPortal() {
@@ -1250,9 +1339,9 @@
         byId("portalNome").textContent = c.nome;
         byId("portalContrato").textContent = `${c.contrato} - ${money(c.valor)}`;
         byId("portalResumo").textContent = `${c.funcao} | CPF ${c.cpf} | ${pontos.length} ponto(s) registrado(s)`;
-        byId("portalPontos").innerHTML = pontos.length ? `<table><thead><tr><th>Tipo</th><th>Obra</th><th>Data/hora</th></tr></thead><tbody>${pontos.map(p => {
+        byId("portalPontos").innerHTML = pontos.length ? `<table><thead><tr><th>Tipo</th><th>Obra</th><th>Data/hora</th><th>Localizacao</th><th>Status</th></tr></thead><tbody>${pontos.map(p => {
           const obra = db.obras.find(item => item.id === p.obraId);
-          return `<tr><td>${escapeHtml(p.tipo)}</td><td>${escapeHtml(obra ? obra.nome : p.obra)}</td><td>${escapeHtml(p.data)}</td></tr>`;
+          return `<tr><td>${escapeHtml(p.tipo)}</td><td>${escapeHtml(obra ? obra.nome : p.obra)}</td><td>${escapeHtml(p.data)}</td><td>${locationLink(p.localizacao)}</td><td><span class="pill">${syncLabel(p)}</span></td></tr>`;
         }).join("")}</tbody></table>` : `<div class="empty">Este colaborador ainda nao tem ponto registrado.</div>`;
       }
 
@@ -1488,24 +1577,45 @@
         renderColabAccessMenu();
       }
 
-      byId("pontoForm").addEventListener("submit", e => {
+      byId("pontoForm").addEventListener("submit", async e => {
         e.preventDefault();
         const colaborador = getColaboradorLogado();
         if (!colaborador || colaborador.primeiroAcesso) {
           alert("Faca login e cadastre a nova senha antes de registrar o ponto.");
           return;
         }
+        const submitButton = e.submitter || byId("pontoForm").querySelector("button[type='submit']");
+        if (submitButton) {
+          submitButton.disabled = true;
+          submitButton.textContent = "Capturando localizacao...";
+        }
+        byId("pontoStatusMsg").textContent = "Capturando localizacao do aparelho. Se estiver sem internet, o ponto ficara salvo para sincronizar depois.";
+        const localizacao = await getCurrentLocation();
+        const obra = db.obras.find(o => o.id === byId("pontoObra").value);
         db.pontos.push({
           id: crypto.randomUUID(),
           colaboradorId: colaborador.id,
           obraId: byId("pontoObra").value,
+          obra: obra?.nome || "",
           tipo: byId("pontoTipo").value,
           obs: byId("pontoObs").value,
-          data: new Date().toLocaleString("pt-BR")
+          data: new Date().toLocaleString("pt-BR"),
+          createdAt: new Date().toISOString(),
+          localizacao,
+          syncStatus: "pending"
         });
         byId("pontoObs").value = "";
         save();
         renderAll();
+        byId("pontoStatusMsg").textContent = localizacao.ok
+          ? "Ponto registrado com localizacao. Se estiver offline, sera sincronizado quando a internet voltar."
+          : `Ponto registrado sem localizacao: ${localizacao.error}`;
+        await syncOnlineDb();
+        renderAll();
+        if (submitButton) {
+          submitButton.disabled = false;
+          submitButton.textContent = "Registrar ponto agora";
+        }
       });
 
       function loginColaborador(cpf, senha, messageId) {
@@ -2006,6 +2116,8 @@
       };
 
       async function initApp() {
+        setupOfflineSync();
+        registerOfflineApp();
         await loadOnlineDb();
         normalizeDb();
         if (apiDisponivel) save();

@@ -1,0 +1,10 @@
+{
+  "name": "Sistema ECORP",
+  "short_name": "ECORP",
+  "start_url": "/integracao-preview.html",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f4f6f1",
+  "theme_color": "#2d6a4f",
+  "description": "Sistema operacional da construtora E-CORP com registro de ponto offline."
+}

@@ -5,6 +5,8 @@ WORKDIR /app
 COPY package.json ./
 COPY server-online.mjs ./
 COPY integracao-preview.html ./
+COPY manifest.webmanifest ./
+COPY ecorp-sw.js ./
 COPY PUBLICAR_ONLINE.md ./
 COPY data ./data
 COPY _ecorp_site_zip/client/public ./_ecorp_site_zip/client/public
