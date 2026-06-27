@@ -59,6 +59,20 @@ p {
   opacity: 0.78;
 }
 
+.topbar-home {
+  border-radius: 8px;
+  color: inherit;
+  display: block;
+  padding: 6px 8px;
+  text-decoration: none;
+}
+
+.topbar-home:hover,
+.topbar-home:focus-visible {
+  background: rgba(255, 255, 255, 0.12);
+  outline: none;
+}
+
 .topbar-actions,
 .section-actions,
 .section-header,
