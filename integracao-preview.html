@@ -439,8 +439,8 @@
             <div class="card stat"><span class="muted">Fotos de avanco</span><strong id="clienteQtdFotos">0</strong></div>
             <div class="card stat"><span class="muted">Prazo planejado</span><strong id="clientePrazoPlanejado">0 dias</strong></div>
             <div class="card stat"><span class="muted">Etapas concluidas</span><strong id="clienteEtapasEngenharia">0/0</strong></div>
-            <div class="card stat"><span class="muted">Mao de obra prevista</span><strong id="clienteMoPrevista">R$ 0,00</strong></div>
-            <div class="card stat"><span class="muted">MO medida aprovada</span><strong id="clienteMoMedida">R$ 0,00</strong></div>
+            <div class="card stat"><span class="muted">Mao de obra prevista c/ BDI</span><strong id="clienteMoPrevista">R$ 0,00</strong></div>
+            <div class="card stat"><span class="muted">MO medida aprovada c/ BDI</span><strong id="clienteMoMedida">R$ 0,00</strong></div>
             <div class="card stat"><span class="muted">MO paga</span><strong id="clienteMoPaga">R$ 0,00</strong></div>
           </div>
           <div class="grid cols-2">
@@ -502,6 +502,7 @@
       const clienteSessionKey = "ecorp-cliente-auth-preview";
       const apiDisponivel = location.protocol === "http:" || location.protocol === "https:";
       const senhaPadraoColaborador = "123456";
+      const defaultBdiPercent = 20;
       const adminCredentials = { user: "ADM", pass: "ADM6347" };
       const ECB_PRODUCTIVITY_MASTER = [
         { code: "ECB-010101", discipline: "Servicos Preliminares", name: "Mobilizacao inicial da obra", unit: "dia", qty: 1, crew: "1 pedreiro + 1 servente", productivity: 1, source: "Premissa E-Corp" },
@@ -765,13 +766,19 @@
               description: item.referenceDescription || ""
             }
           : baseReference;
+        const bdiPercent = Number(item.bdiPercent ?? defaultBdiPercent);
+        const laborCostValue = quantity * reference.unitValue;
+        const bdiValue = laborCostValue * Math.max(0, bdiPercent) / 100;
         return {
           ...item,
+          bdiPercent,
           referenceUnitValue: reference.unitValue,
           referenceSource: reference.source,
           referenceCode: reference.code,
           referenceDescription: reference.description,
-          laborValue: quantity * reference.unitValue
+          laborCostValue,
+          bdiValue,
+          laborValue: laborCostValue + bdiValue
         };
       }
 
@@ -873,8 +880,9 @@
           const percentByMeasured = quantity > 0 ? Math.round((measured / quantity) * 100) : 0;
           const percent = Math.max(0, Math.min(100, Number(row.querySelector("[data-plan-percent]")?.value || percentByMeasured)));
           const referenceUnitValue = Number(row.querySelector("[data-plan-unit-value]")?.value || item.referenceUnitValue || item.laborUnitValue || 0);
+          const bdiPercent = Math.max(0, Number(row.querySelector("[data-plan-bdi]")?.value || item.bdiPercent || defaultBdiPercent));
           const paidValue = Number(row.querySelector("[data-plan-paid]")?.value || 0);
-          return recalcActivityLabor({ ...item, quantity, measured, status, percent, referenceUnitValue, paidValue });
+          return recalcActivityLabor({ ...item, quantity, measured, status, percent, referenceUnitValue, bdiPercent, paidValue });
         });
         const stats = planStats(controle.engenhariaPlano);
         controle.percentual = stats.average;
@@ -895,6 +903,8 @@
           const planned = Number(item.laborValue || 0);
           const measuredValue = planned * Math.max(0, Math.min(100, Number(item.percent || 0))) / 100;
           const paid = Number(item.paidValue || 0);
+          const unitBase = Number(item.referenceUnitValue || 0);
+          const bdiPercent = Number(item.bdiPercent ?? defaultBdiPercent);
           return {
             etapa: index + 1,
             obra: obra?.nome || "",
@@ -910,7 +920,11 @@
             medido: Number(item.measured || 0),
             percentual: Number(item.percent || 0),
             status: item.status || "",
-            valorUnitarioMo: Number(item.referenceUnitValue || 0),
+            bdiPercent,
+            valorUnitarioMo: unitBase,
+            valorUnitarioMoComBdi: unitBase * (1 + Math.max(0, bdiPercent) / 100),
+            valorMoCusto: Number(item.laborCostValue || 0),
+            valorBdi: Number(item.bdiValue || 0),
             valorMoPrevisto: planned,
             valorMoMedido: measuredValue,
             valorPago: paid,
@@ -931,7 +945,7 @@
           return;
         }
         const obra = db.obras.find(o => o.id === obraId);
-        const headers = ["Etapa", "Obra", "Cliente", "Codigo", "Disciplina", "Atividade", "Unidade", "Quantidade", "Equipe", "Produtividade/dia", "Dias previstos", "Medido", "% executado", "Status", "Valor unit. MO", "MO prevista", "MO medida", "Pago", "Saldo"];
+        const headers = ["Etapa", "Obra", "Cliente", "Codigo", "Disciplina", "Atividade", "Unidade", "Quantidade", "Equipe", "Produtividade/dia", "Dias previstos", "Medido", "% executado", "Status", "Valor unit. custo", "BDI %", "Valor unit. com BDI", "MO custo", "Valor BDI", "MO prevista com BDI", "MO medida com BDI", "Pago", "Saldo"];
         const lines = rows.map(row => [
           row.etapa,
           row.obra,
@@ -948,6 +962,10 @@
           row.percentual,
           row.status,
           row.valorUnitarioMo,
+          row.bdiPercent,
+          row.valorUnitarioMoComBdi,
+          row.valorMoCusto,
+          row.valorBdi,
           row.valorMoPrevisto,
           row.valorMoMedido,
           row.valorPago,
@@ -1060,14 +1078,16 @@
         push("Etapas, produtividade, prazo previsto, medicao fisica e financeiro de mao de obra por atividade.");
         push("");
         push(`Prazo planejado: ${stats.plannedDays} dias | Avanco tecnico: ${stats.average}% | Etapas concluidas: ${stats.completed}/${stats.total}`);
-        push(`MO prevista: ${money(finance.planned)} | MO medida: ${money(finance.measured)} | MO paga/saldo: ${money(finance.paid)} / ${money(finance.balance)}`);
+        push(`MO prevista com BDI: ${money(finance.planned)} | MO medida com BDI: ${money(finance.measured)} | MO paga/saldo: ${money(finance.paid)} / ${money(finance.balance)}`);
+        push(`BDI padrao aplicado: ${defaultBdiPercent}% sobre o custo base da mao de obra.`);
         push("");
         rows.forEach(row => {
           const title = `${row.etapa}. ${row.atividade} (${row.codigo} - ${row.disciplina})`;
           splitPdfText(title, 112).forEach(push);
           push(`Qtd.: ${formatNumber(row.quantidade)} ${row.unidade} | Equipe/produtividade: ${row.equipe} - ${formatNumber(row.produtividadeDia)} ${row.unidade}/dia | Prazo: ${row.diasPrevistos} dia(s)`);
           push(`Medido: ${formatNumber(row.medido)} ${row.unidade} | Avanco: ${formatNumber(row.percentual)}% | Status: ${row.status}`);
-          push(`MO unit.: ${money(row.valorUnitarioMo)} / ${row.unidade} | Total: ${money(row.valorMoPrevisto)} | Medido: ${money(row.valorMoMedido)}`);
+          push(`MO unit. custo: ${money(row.valorUnitarioMo)} / ${row.unidade} | BDI: ${formatNumber(row.bdiPercent)}% | Unit. com BDI: ${money(row.valorUnitarioMoComBdi)} / ${row.unidade}`);
+          push(`Custo: ${money(row.valorMoCusto)} | Valor BDI: ${money(row.valorBdi)} | Total com BDI: ${money(row.valorMoPrevisto)} | Medido: ${money(row.valorMoMedido)}`);
           push(`Pago: ${money(row.valorPago)} | Saldo: ${money(row.saldo)} | Referencia ECB ${row.codigo}`);
           push("");
         });
@@ -1218,8 +1238,8 @@
           <div class="stat"><span class="muted">Prazo planejado</span><strong>${stats.plannedDays} dias</strong></div>
           <div class="stat"><span class="muted">Avanco tecnico</span><strong>${stats.average}%</strong></div>
           <div class="stat"><span class="muted">Etapas concluidas</span><strong>${stats.completed}/${stats.total}</strong></div>
-          <div class="stat"><span class="muted">MO prevista</span><strong>${money(finance.planned)}</strong></div>
-          <div class="stat"><span class="muted">MO medida</span><strong>${money(finance.measured)}</strong></div>
+          <div class="stat"><span class="muted">MO prevista c/ BDI 20%</span><strong>${money(finance.planned)}</strong></div>
+          <div class="stat"><span class="muted">MO medida c/ BDI</span><strong>${money(finance.measured)}</strong></div>
           <div class="stat"><span class="muted">MO paga / saldo</span><strong>${money(finance.paid)} / ${money(finance.balance)}</strong></div>
           ${finance.overpaid > 0 ? `<div class="stat"><span class="muted">Alerta financeiro</span><strong>Pagamento acima da medicao: ${money(finance.overpaid)}</strong></div>` : ""}`;
         if (!plan.length) {
@@ -1228,6 +1248,10 @@
         }
         const rows = plan.map(item => {
           const laborValue = Number(item.laborValue || 0);
+          const laborCostValue = Number(item.laborCostValue || 0);
+          const bdiPercent = Number(item.bdiPercent ?? defaultBdiPercent);
+          const bdiValue = Number(item.bdiValue || 0);
+          const unitWithBdi = Number(item.referenceUnitValue || 0) * (1 + Math.max(0, bdiPercent) / 100);
           const measuredValue = laborValue * Math.max(0, Math.min(100, Number(item.percent || 0))) / 100;
           const paidValue = Number(item.paidValue || 0);
           const overpaidClass = paidValue > measuredValue ? ` style="background:#fff2f2"` : "";
@@ -1239,14 +1263,14 @@
             <td>${planDays(item)} dia(s)</td>
             <td><input data-plan-measured type="number" min="0" step="0.01" value="${Number(item.measured || 0)}" style="max-width:90px" /></td>
             <td><input data-plan-percent type="number" min="0" max="100" value="${Number(item.percent || 0)}" style="max-width:72px" />%</td>
-            <td><input data-plan-unit-value type="number" min="0" step="0.01" value="${Number(item.referenceUnitValue || 0).toFixed(2)}" style="max-width:110px" /> / ${escapeHtml(item.unit)}<br><span class="muted">${escapeHtml(item.referenceSource || "Base")} ${escapeHtml(item.referenceCode || "")}</span><br><span class="muted">Total: ${money(laborValue)} | Medido: ${money(measuredValue)}</span></td>
+            <td><input data-plan-unit-value type="number" min="0" step="0.01" value="${Number(item.referenceUnitValue || 0).toFixed(2)}" style="max-width:110px" /> / ${escapeHtml(item.unit)}<br><span class="muted">${escapeHtml(item.referenceSource || "Base")} ${escapeHtml(item.referenceCode || "")}</span><br><span class="muted">BDI <input data-plan-bdi type="number" min="0" step="0.01" value="${bdiPercent.toFixed(2)}" style="display:inline-block; max-width:72px; padding:5px" />% | Unit. c/ BDI: ${money(unitWithBdi)}</span><br><span class="muted">Custo: ${money(laborCostValue)} | BDI: ${money(bdiValue)}</span><br><span class="muted">Total c/ BDI: ${money(laborValue)} | Medido: ${money(measuredValue)}</span></td>
             <td><input data-plan-paid type="number" min="0" step="0.01" value="${paidValue.toFixed(2)}" style="max-width:110px" /><br><span class="muted">Saldo: ${money(Math.max(0, laborValue - paidValue))}</span></td>
             <td><select data-plan-status>
               ${["Nao iniciado", "Em execucao", "Aguardando vistoria", "Aprovado para medicao", "Medido", "Concluido", "Pago"].map(status => `<option ${item.status === status ? "selected" : ""}>${status}</option>`).join("")}
             </select></td>
           </tr>`;
         }).join("");
-        byId("controlePlanoLista").innerHTML = `<table><thead><tr><th>Atividade</th><th>Qtd.</th><th>Equipe/produtividade</th><th>Prazo</th><th>Medido</th><th>%</th><th>MO unit. / total</th><th>Pago</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
+        byId("controlePlanoLista").innerHTML = `<table><thead><tr><th>Atividade</th><th>Qtd.</th><th>Equipe/produtividade</th><th>Prazo</th><th>Medido</th><th>%</th><th>MO custo + BDI</th><th>Pago</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
       }
 
       function renderControleAlocados(obraId) {
@@ -1298,14 +1322,14 @@
         byId("clienteQtdFotos").textContent = fotos.length;
         byId("clientePrazoPlanejado").textContent = `${stats.plannedDays} dias`;
         byId("clienteEtapasEngenharia").textContent = `${stats.completed}/${stats.total}`;
-        byId("clienteMoPrevista").textContent = money(finance.planned);
-        byId("clienteMoMedida").textContent = money(finance.measured);
+        byId("clienteMoPrevista").textContent = `${money(finance.planned)} c/ BDI`;
+        byId("clienteMoMedida").textContent = `${money(finance.measured)} c/ BDI`;
         byId("clienteMoPaga").textContent = money(finance.paid);
         byId("clienteResumoObra").textContent = controle.resumo || "Sem atualizacao cadastrada.";
         byId("clienteEquipe").innerHTML = equipe.length ? equipe.map(c => `<span class="pill">${escapeHtml(c.nome)} - ${escapeHtml(c.funcao)}</span>`).join(" ") : `<div class="empty">Equipe ainda nao vinculada.</div>`;
         byId("clientePlanoEngenharia").innerHTML = plan.length ? `<table><thead><tr><th>Etapa</th><th>Status</th><th>Avanco</th><th>MO medida</th></tr></thead><tbody>${plan.map(item => {
           const measuredValue = Number(item.laborValue || 0) * Math.max(0, Math.min(100, Number(item.percent || 0))) / 100;
-          return `<tr><td><strong>${escapeHtml(item.name)}</strong><br><span class="muted">${escapeHtml(item.discipline)}</span></td><td>${escapeHtml(item.status)}</td><td>${Number(item.percent || 0)}%</td><td>${money(measuredValue)}</td></tr>`;
+          return `<tr><td><strong>${escapeHtml(item.name)}</strong><br><span class="muted">${escapeHtml(item.discipline)} | BDI ${Number(item.bdiPercent ?? defaultBdiPercent)}%</span></td><td>${escapeHtml(item.status)}</td><td>${Number(item.percent || 0)}%</td><td>${money(measuredValue)}</td></tr>`;
         }).join("")}</tbody></table>` : `<div class="empty">Plano de engenharia ainda nao gerado.</div>`;
         const gastoRows = gastos.slice().reverse().map(g => `<tr><td>${escapeHtml(g.descricao || "Compra")}</td><td>${escapeHtml(g.fornecedor || "-")}</td><td>${escapeHtml(g.data || "-")}</td><td>${money(g.valor)}</td></tr>`).join("");
         byId("clienteGastosLista").innerHTML = gastoRows ? `<table><thead><tr><th>Item</th><th>Fornecedor</th><th>Data</th><th>Valor</th></tr></thead><tbody>${gastoRows}</tbody></table>` : `<div class="empty">Nenhum gasto lancado ainda.</div>`;
