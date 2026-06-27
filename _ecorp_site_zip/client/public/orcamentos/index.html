@@ -108,6 +108,25 @@
           </p>
           <div class="takeoff-grid">
             <label>
+              Tipo de obra
+              <select id="constructionType">
+                <option value="casa_terrea" selected>Casa terrea</option>
+                <option value="sobrado">Sobrado</option>
+                <option value="barracao">Barracao</option>
+                <option value="reforma">Reforma</option>
+                <option value="ampliacao">Ampliacao</option>
+              </select>
+            </label>
+            <label>
+              Processo construtivo
+              <button class="ghost" id="loadConstructionProcessBtn" type="button">Carregar etapas padrao</button>
+            </label>
+          </div>
+          <div class="selected-service" id="constructionProcessSummary">
+            Escolha o tipo de obra para sugerir etapas e itens padrao do processo construtivo.
+          </div>
+          <div class="takeoff-grid">
+            <label>
               Paredes externas - terreo (m)
               <input id="externalWallLength" min="0" step="0.01" type="number" placeholder="Ex.: 42" />
             </label>
@@ -394,6 +413,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
     <script src="sinapi-data.js"></script>
     <script src="cdhu-data.js"></script>
-    <script src="app.js?v=20260622-sinapi-clean1"></script>
+    <script src="app.js?v=20260627-processos1"></script>
   </body>
 </html>

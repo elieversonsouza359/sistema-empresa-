@@ -12,6 +12,96 @@ const BUDGET_SCOPE_OPTIONS = {
   labor_material: "Material + mao de obra",
   labor_only: "Apenas mao de obra"
 };
+const CONSTRUCTION_PROCESS_MODELS = {
+  casa_terrea: {
+    label: "Casa terrea",
+    items: [
+      ["Servicos preliminares", "locacao_obra", "Locacao da obra", "m2", "floor", ["locacao", "gabarito", "obra"]],
+      ["Servicos preliminares", "limpeza_terreno", "Limpeza do terreno", "m2", "floor", ["limpeza", "terreno"]],
+      ["Fundacao", "fundacao", "Fundacao", "m3", "foundation", ["fundacao", "baldrame", "sapata", "radier", "concreto"]],
+      ["Impermeabilizacao", "impermeabilizacao", "Impermeabilizacao de fundacao", "m2", "foundationArea", ["impermeabilizacao", "baldrame", "fundacao"]],
+      ["Alvenaria", "alvenaria", "Alvenaria de vedacao", "m2", "wall", ["alvenaria", "bloco", "parede", "vedacao"]],
+      ["Revestimentos", "chapisco", "Chapisco", "m2", "finishWall", ["chapisco"]],
+      ["Revestimentos", "reboco", "Emboco / reboco", "m2", "finishWall", ["reboco", "emboco", "massa unica"]],
+      ["Pisos", "contrapiso", "Contrapiso", "m2", "floor", ["contrapiso", "piso cimentado"]],
+      ["Cobertura", "telhado", "Cobertura / telhado", "m2", "roof", ["telhado", "cobertura", "trama", "telha"]],
+      ["Instalacoes", "instalacao_hidraulica", "Instalacao hidraulica", "pt", "points", ["instalacao hidraulica", "agua fria", "ponto hidraulico"]],
+      ["Instalacoes", "instalacao_eletrica", "Instalacao eletrica", "pt", "points", ["instalacao eletrica", "ponto eletrico", "eletroduto"]],
+      ["Esquadrias", "porta", "Portas", "un", "doors", ["porta", "kit porta"]],
+      ["Esquadrias", "janela", "Janelas", "un", "windows", ["janela", "esquadria"]],
+      ["Pintura", "pintura", "Pintura interna/externa", "m2", "finishWall", ["pintura", "latex", "acrilica"]],
+      ["Entrega", "limpeza_final", "Limpeza final", "m2", "floor", ["limpeza final", "limpeza obra"]]
+    ]
+  },
+  sobrado: {
+    label: "Sobrado",
+    items: [
+      ["Servicos preliminares", "locacao_obra", "Locacao da obra", "m2", "floor", ["locacao", "gabarito", "obra"]],
+      ["Fundacao", "fundacao", "Fundacao reforcada", "m3", "foundation", ["fundacao", "baldrame", "sapata", "concreto"]],
+      ["Estrutura", "estrutura_concreto", "Concreto estrutural", "m3", "structure", ["concreto estrutural", "pilar", "viga", "laje"]],
+      ["Estrutura", "estrutura_forma", "Forma para estrutura", "m2", "structureArea", ["forma", "formas", "estrutura"]],
+      ["Estrutura", "estrutura_aco", "Aco / armadura", "kg", "steel", ["aco", "armadura", "vergalhao", "ca-50"]],
+      ["Estrutura", "laje", "Laje", "m2", "totalFloor", ["laje", "pre-moldada", "macica"]],
+      ["Alvenaria", "alvenaria", "Alvenaria terreo e superior", "m2", "wall", ["alvenaria", "bloco", "parede", "vedacao"]],
+      ["Revestimentos", "chapisco", "Chapisco", "m2", "finishWall", ["chapisco"]],
+      ["Revestimentos", "reboco", "Emboco / reboco", "m2", "finishWall", ["reboco", "emboco", "massa unica"]],
+      ["Pisos", "contrapiso", "Contrapiso", "m2", "totalFloor", ["contrapiso", "piso cimentado"]],
+      ["Escada", "escada", "Escada", "un", "unit", ["escada", "degrau"]],
+      ["Cobertura", "telhado", "Cobertura / telhado", "m2", "roof", ["telhado", "cobertura", "trama", "telha"]],
+      ["Instalacoes", "instalacao_hidraulica", "Instalacao hidraulica", "pt", "points", ["instalacao hidraulica", "agua fria", "esgoto"]],
+      ["Instalacoes", "instalacao_eletrica", "Instalacao eletrica", "pt", "points", ["instalacao eletrica", "ponto eletrico"]],
+      ["Pintura", "pintura", "Pintura", "m2", "finishWall", ["pintura", "latex", "acrilica"]],
+      ["Entrega", "limpeza_final", "Limpeza final", "m2", "totalFloor", ["limpeza final", "limpeza obra"]]
+    ]
+  },
+  barracao: {
+    label: "Barracao",
+    items: [
+      ["Servicos preliminares", "limpeza_terreno", "Limpeza e preparo do terreno", "m2", "floor", ["limpeza", "terreno", "regularizacao"]],
+      ["Fundacao", "fundacao", "Fundacao", "m3", "foundation", ["fundacao", "sapata", "radier", "concreto"]],
+      ["Estrutura", "estrutura_metalica", "Estrutura metalica / pilares", "kg", "steel", ["estrutura metalica", "pilar metalico", "tesoura metalica"]],
+      ["Fechamento", "alvenaria", "Fechamento / alvenaria", "m2", "wall", ["alvenaria", "fechamento", "bloco"]],
+      ["Piso industrial", "piso_industrial", "Piso de concreto", "m2", "floor", ["piso concreto", "piso industrial", "concreto polido"]],
+      ["Cobertura", "telhado", "Cobertura metalica", "m2", "roof", ["cobertura metalica", "telha metalica", "telhado"]],
+      ["Drenagem", "drenagem", "Drenagem / aguas pluviais", "m", "linear", ["drenagem", "agua pluvial", "canaleta"]],
+      ["Instalacoes", "instalacao_eletrica", "Instalacao eletrica", "pt", "points", ["instalacao eletrica", "ponto eletrico"]],
+      ["Pintura", "pintura", "Pintura", "m2", "finishWall", ["pintura", "latex", "acrilica"]],
+      ["Entrega", "limpeza_final", "Limpeza final", "m2", "floor", ["limpeza final", "limpeza obra"]]
+    ]
+  },
+  reforma: {
+    label: "Reforma",
+    items: [
+      ["Demolicoes", "demolicao", "Demolicao / remocao", "m2", "floor", ["demolicao", "remocao", "retirada"]],
+      ["Regularizacao", "regularizacao", "Regularizacao de superficies", "m2", "finishWall", ["regularizacao", "preparo", "superficie"]],
+      ["Alvenaria", "alvenaria", "Alvenaria complementar", "m2", "wall", ["alvenaria", "parede", "vedacao"]],
+      ["Revestimentos", "reboco", "Emboco / reboco", "m2", "finishWall", ["reboco", "emboco", "massa unica"]],
+      ["Pisos", "contrapiso", "Contrapiso / regularizacao", "m2", "floor", ["contrapiso", "regularizacao piso"]],
+      ["Pisos", "piso", "Piso / revestimento", "m2", "floor", ["piso", "revestimento ceramico", "porcelanato"]],
+      ["Instalacoes", "instalacao_hidraulica", "Revisao hidraulica", "pt", "points", ["instalacao hidraulica", "ponto hidraulico"]],
+      ["Instalacoes", "instalacao_eletrica", "Revisao eletrica", "pt", "points", ["instalacao eletrica", "ponto eletrico"]],
+      ["Pintura", "pintura", "Pintura", "m2", "finishWall", ["pintura", "massa", "latex"]],
+      ["Entrega", "limpeza_final", "Limpeza final", "m2", "floor", ["limpeza final", "limpeza obra"]]
+    ]
+  },
+  ampliacao: {
+    label: "Ampliacao",
+    items: [
+      ["Servicos preliminares", "locacao_obra", "Locacao da ampliacao", "m2", "floor", ["locacao", "gabarito", "obra"]],
+      ["Fundacao", "fundacao", "Fundacao da ampliacao", "m3", "foundation", ["fundacao", "baldrame", "sapata", "radier"]],
+      ["Estrutura", "estrutura_concreto", "Estrutura de concreto", "m3", "structure", ["concreto estrutural", "pilar", "viga"]],
+      ["Alvenaria", "alvenaria", "Alvenaria", "m2", "wall", ["alvenaria", "parede", "vedacao"]],
+      ["Revestimentos", "chapisco", "Chapisco", "m2", "finishWall", ["chapisco"]],
+      ["Revestimentos", "reboco", "Emboco / reboco", "m2", "finishWall", ["reboco", "emboco"]],
+      ["Pisos", "contrapiso", "Contrapiso", "m2", "floor", ["contrapiso", "piso cimentado"]],
+      ["Cobertura", "telhado", "Cobertura", "m2", "roof", ["telhado", "cobertura", "telha"]],
+      ["Instalacoes", "instalacao_hidraulica", "Pontos hidraulicos", "pt", "points", ["ponto hidraulico", "instalacao hidraulica"]],
+      ["Instalacoes", "instalacao_eletrica", "Pontos eletricos", "pt", "points", ["ponto eletrico", "instalacao eletrica"]],
+      ["Pintura", "pintura", "Pintura", "m2", "finishWall", ["pintura", "latex", "acrilica"]],
+      ["Entrega", "limpeza_final", "Limpeza final", "m2", "floor", ["limpeza final", "limpeza obra"]]
+    ]
+  }
+};
 const PROJECT_READER_RULES = [
   { key: "baldrame", label: "Viga baldrame", units: ["m", "m3"], terms: ["baldrame", "viga baldrame"] },
   { key: "alvenaria", label: "Alvenaria", units: ["m2"], terms: ["alvenaria", "parede", "vedacao"] },
@@ -124,6 +214,9 @@ const els = {
   bdiInput: document.querySelector("#bdiInput"),
   budgetDataSource: document.querySelector("#budgetDataSource"),
   budgetCostScope: document.querySelector("#budgetCostScope"),
+  constructionType: document.querySelector("#constructionType"),
+  loadConstructionProcessBtn: document.querySelector("#loadConstructionProcessBtn"),
+  constructionProcessSummary: document.querySelector("#constructionProcessSummary"),
   budgetServiceSearch: document.querySelector("#budgetServiceSearch"),
   selectedServiceCode: document.querySelector("#selectedServiceCode"),
   budgetSuggestions: document.querySelector("#budgetSuggestions"),
@@ -216,6 +309,7 @@ els.cityName.addEventListener("input", updateBudgetMeta);
 els.bdiInput.addEventListener("input", updateBudgetMeta);
 els.budgetDataSource?.addEventListener("change", updateBudgetOptions);
 els.budgetCostScope?.addEventListener("change", updateBudgetOptions);
+els.loadConstructionProcessBtn?.addEventListener("click", loadConstructionProcess);
 els.budgetServiceSearch.addEventListener("input", updateBudgetSuggestions);
 els.budgetServiceSearch.addEventListener("focus", updateBudgetSuggestions);
 els.budgetServiceSearch.addEventListener("keydown", handleSuggestionKeys);
@@ -1591,6 +1685,76 @@ function addTakeoffEstimate(estimates, ruleKey, label, quantity, unit, note) {
   });
 }
 
+function loadConstructionProcess() {
+  const modelKey = els.constructionType?.value || "casa_terrea";
+  const model = CONSTRUCTION_PROCESS_MODELS[modelKey] || CONSTRUCTION_PROCESS_MODELS.casa_terrea;
+  const metrics = getConstructionMetrics();
+  const estimates = model.items.map(([stage, ruleKey, label, unit, metricKey, terms]) => {
+    const quantity = getConstructionProcessQuantity(metrics, metricKey);
+    const service = findBestServiceForRule({ key: ruleKey, label, units: [unit], terms });
+    return {
+      id: crypto.randomUUID(),
+      ruleKey,
+      stage,
+      label: `${stage} - ${label}`,
+      quantity,
+      unit,
+      service,
+      confidence: service
+        ? `Processo construtivo ${model.label}: item sugerido pela base ${getCurrentBaseLabel()}`
+        : `Processo construtivo ${model.label}: sem item automatico na base ${getCurrentBaseLabel()}`
+    };
+  });
+
+  projectEstimates = mergeProjectEstimates([...projectEstimates, ...estimates]);
+  renderProjectEstimates();
+  if (els.constructionProcessSummary) {
+    els.constructionProcessSummary.textContent = `${model.label}: ${model.items.length} etapa(s)/item(ns) padrao carregados. Ajuste as quantidades antes de adicionar ao orcamento.`;
+  }
+  setProjectStatus(`${model.items.length} item(ns) do processo construtivo carregado(s). Confira as sugestoes e adicione ao orcamento.`);
+}
+
+function getConstructionMetrics() {
+  const floor = toNumber(els.floorArea?.value);
+  const upperFloor = toNumber(els.upperFloorArea?.value);
+  const roof = toNumber(els.roofArea?.value);
+  const groundWall = (toNumber(els.externalWallLength?.value) + toNumber(els.internalWallLength?.value)) * toNumber(els.wallHeight?.value);
+  const upperWall = (toNumber(els.upperExternalWallLength?.value) + toNumber(els.upperInternalWallLength?.value)) * toNumber(els.upperWallHeight?.value);
+  const wall = roundQuantity(groundWall + upperWall);
+  const finishWall = roundQuantity(wall * Math.max(toNumber(els.rebocoFaces?.value || 2), 1));
+  const baldrameVolume = toNumber(els.baldrameLength?.value) * toNumber(els.baldrameWidth?.value || 0.2) * toNumber(els.baldrameHeight?.value || 0.3);
+  const radierVolume = floor * toNumber(els.radierThickness?.value || 0.12);
+  const foundationType = els.foundationType?.value || "baldrame";
+  const foundation = foundationType === "radier" ? radierVolume : foundationType === "none" ? 0 : baldrameVolume;
+  const totalFloor = floor + upperFloor;
+  const doors = toNumber(els.doorCount?.value);
+  const windows = toNumber(els.windowCount?.value);
+
+  return {
+    floor,
+    upperFloor,
+    totalFloor,
+    roof,
+    wall,
+    finishWall,
+    foundation,
+    foundationArea: Math.max(floor, toNumber(els.baldrameLength?.value) * 0.4),
+    structure: Math.max(totalFloor * 0.08, 0),
+    structureArea: Math.max(totalFloor * 1.2, 0),
+    steel: Math.max(totalFloor * 12, 0),
+    points: Math.max(Math.round(totalFloor / 8), 0),
+    doors,
+    windows,
+    linear: Math.max(toNumber(els.externalWallLength?.value) + toNumber(els.upperExternalWallLength?.value), 0),
+    unit: 1
+  };
+}
+
+function getConstructionProcessQuantity(metrics, key) {
+  const value = metrics[key] ?? 0;
+  return roundQuantity(value > 0 ? value : 1);
+}
+
 function addFoundationEstimates(estimates, values) {
   const { foundationType, baldrameVolume, radierVolume, floorArea, radierThickness } = values;
   if (foundationType === "none") return;
@@ -1792,6 +1956,21 @@ function scoreServiceForRule(service, rule, preferredUnit) {
     if (wantsCeramic && description.includes("concreto")) score -= 18;
   }
 
+  if (rule.key === "estrutura_concreto" || rule.key === "concreto") {
+    if (description.includes("concreto") || description.includes("concretagem") || description.includes("lancamento")) score += 18;
+    if (description.includes("armacao") || description.includes("aco ") || description.includes("vergalhao") || description.includes("forma")) score -= 30;
+  }
+
+  if (rule.key === "estrutura_forma" || rule.key === "forma") {
+    if (description.includes("forma") || description.includes("formas") || description.includes("montagem")) score += 18;
+    if (description.includes("radier") || description.includes("piso") || description.includes("armacao") || description.includes("aco ")) score -= 22;
+  }
+
+  if (rule.key === "estrutura_aco" || rule.key === "aco") {
+    if (description.includes("armacao") || description.includes("aco") || description.includes("vergalhao") || description.includes("ca-50") || description.includes("ca-60")) score += 18;
+    if (description.includes("concreto") && !description.includes("armacao")) score -= 18;
+  }
+
   if (unit === preferredUnit) score += 5;
   if (service.type === "COMPOSICAO") score += 3;
   if (description.includes("mao de obra") || description.includes("pedreiro") || description.includes("servente")) score += 1;
@@ -1829,6 +2008,7 @@ function renderProjectEstimates() {
         <input type="checkbox" data-estimate-check="${estimate.id}" checked />
         <div>
           <strong>${escapeHtml(estimate.label)}</strong>
+          ${estimate.stage ? `<small>Etapa: ${escapeHtml(estimate.stage)}</small>` : ""}
           <small>${serviceText}</small>
           <small>${escapeHtml(estimate.confidence)}</small>
         </div>
