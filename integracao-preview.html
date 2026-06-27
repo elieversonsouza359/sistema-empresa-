@@ -290,6 +290,19 @@
             <button class="primary" id="salvarControleObra" type="button">Salvar andamento</button>
           </div>
 
+          <div class="card">
+            <div class="toolbar">
+              <div>
+                <h3>Plano de engenharia ECB</h3>
+                <p class="muted">Etapas, produtividade, prazo previsto e medicao por atividade da obra.</p>
+              </div>
+              <button class="primary" id="gerarPlanoEngenharia" type="button">Gerar plano da obra</button>
+            </div>
+            <div id="controlePlanoResumo" class="grid cols-3" style="margin-top:12px"></div>
+            <div id="controlePlanoLista" style="margin-top:12px"></div>
+            <button id="salvarPlanoEngenharia" type="button" style="margin-top:12px">Salvar medicoes do plano</button>
+          </div>
+
           <div class="grid cols-2">
             <form class="card grid" id="controleGastoForm">
               <h3>Lancar NFe / compra</h3>
@@ -373,6 +386,8 @@
             <div class="card stat"><span class="muted">Gasto total lancado</span><strong id="clienteGastoTotal">R$ 0,00</strong></div>
             <div class="card stat"><span class="muted">NFe / compras</span><strong id="clienteQtdCompras">0</strong></div>
             <div class="card stat"><span class="muted">Fotos de avanco</span><strong id="clienteQtdFotos">0</strong></div>
+            <div class="card stat"><span class="muted">Prazo planejado</span><strong id="clientePrazoPlanejado">0 dias</strong></div>
+            <div class="card stat"><span class="muted">Etapas concluidas</span><strong id="clienteEtapasEngenharia">0/0</strong></div>
           </div>
           <div class="grid cols-2">
             <div class="card">
@@ -383,6 +398,10 @@
               <h3>Equipe na obra</h3>
               <div id="clienteEquipe"></div>
             </div>
+          </div>
+          <div class="card">
+            <h3>Etapas da obra</h3>
+            <div id="clientePlanoEngenharia"></div>
           </div>
           <div class="card">
             <h3>Compras e gastos</h3>
@@ -430,6 +449,44 @@
       const apiDisponivel = location.protocol === "http:" || location.protocol === "https:";
       const senhaPadraoColaborador = "123456";
       const adminCredentials = { user: "ADM", pass: "ADM6347" };
+      const ECB_PRODUCTIVITY_MASTER = [
+        { code: "ECB-010101", discipline: "Servicos Preliminares", name: "Mobilizacao inicial da obra", unit: "dia", qty: 1, crew: "1 pedreiro + 1 servente", productivity: 1, source: "Premissa E-Corp" },
+        { code: "ECB-010201", discipline: "Servicos Preliminares", name: "Conferencia de projeto e marcacao de eixos", unit: "m2", qty: 150, crew: "1 pedreiro + 1 servente", productivity: 75, source: "Premissa E-Corp" },
+        { code: "ECB-010202", discipline: "Servicos Preliminares", name: "Execucao de gabarito", unit: "m", qty: 50, crew: "1 pedreiro + 1 servente", productivity: 25, source: "Premissa E-Corp" },
+        { code: "ECB-030101", discipline: "Fundacao", name: "Escavacao de brocas", unit: "un", qty: 12, crew: "1 pedreiro + 1 servente", productivity: 4, source: "Estimativa de campo" },
+        { code: "ECB-030201", discipline: "Fundacao", name: "Corte e dobra de aco para fundacao", unit: "kg", qty: 450, crew: "1 pedreiro + 1 servente", productivity: 90, source: "Premissa E-Corp" },
+        { code: "ECB-030301", discipline: "Fundacao", name: "Escavacao manual de baldrame", unit: "m", qty: 50, crew: "1 pedreiro + 1 servente", productivity: 10, source: "Estimativa de campo" },
+        { code: "ECB-030303", discipline: "Fundacao", name: "Montagem de formas do baldrame", unit: "m", qty: 50, crew: "1 pedreiro + 1 servente", productivity: 12.5, source: "Estimativa de campo" },
+        { code: "ECB-030304", discipline: "Fundacao", name: "Montagem de armadura do baldrame", unit: "m", qty: 50, crew: "1 pedreiro + 1 servente", productivity: 12.5, source: "Estimativa de campo" },
+        { code: "ECB-030305", discipline: "Fundacao", name: "Concretagem do baldrame", unit: "m", qty: 50, crew: "1 pedreiro + 1 servente", productivity: 50, source: "Premissa E-Corp" },
+        { code: "ECB-040101", discipline: "Piso", name: "Preparacao e nivelamento do terreno interno", unit: "m2", qty: 150, crew: "1 pedreiro + 1 servente", productivity: 50, source: "Premissa E-Corp" },
+        { code: "ECB-040105", discipline: "Piso", name: "Instalacao de malha POP", unit: "m2", qty: 150, crew: "1 pedreiro + 1 servente", productivity: 100, source: "Premissa E-Corp" },
+        { code: "ECB-040106", discipline: "Piso", name: "Concretagem de contrapiso/piso", unit: "m2", qty: 150, crew: "1 pedreiro + 1 servente", productivity: 75, source: "Premissa E-Corp" },
+        { code: "ECB-060101", discipline: "Alvenaria", name: "Marcacao da primeira fiada", unit: "m", qty: 50, crew: "1 pedreiro + 1 servente", productivity: 25, source: "Premissa E-Corp" },
+        { code: "ECB-060102", discipline: "Alvenaria", name: "Assentamento da primeira fiada", unit: "m2", qty: 25, crew: "1 pedreiro + 1 servente", productivity: 8.5, source: "Premissa E-Corp" },
+        { code: "ECB-060201", discipline: "Alvenaria", name: "Assentamento de alvenaria ate 2,50 m", unit: "m2", qty: 125, crew: "1 pedreiro + 1 servente", productivity: 9.6, source: "Cronograma aprovado" },
+        { code: "ECB-060202", discipline: "Alvenaria", name: "Assentamento de alvenaria de 2,50 m ate 5,00 m", unit: "m2", qty: 125, crew: "1 pedreiro + 1 servente", productivity: 9.6, source: "Cronograma aprovado" },
+        { code: "ECB-060401", discipline: "Alvenaria", name: "Forma da cinta intermediaria", unit: "m", qty: 50, crew: "1 pedreiro + 1 servente", productivity: 25, source: "Cronograma aprovado" },
+        { code: "ECB-060501", discipline: "Alvenaria", name: "Forma do cintamento superior", unit: "m", qty: 50, crew: "1 pedreiro + 1 servente", productivity: 25, source: "Cronograma aprovado" },
+        { code: "ECB-070201", discipline: "Estrutura Metalica", name: "Montagem de tesouras metalicas", unit: "un", qty: 4, crew: "Equipe metalica", productivity: 1, source: "Premissa E-Corp" },
+        { code: "ECB-070202", discipline: "Estrutura Metalica", name: "Montagem de tercas metalicas", unit: "m2", qty: 150, crew: "Equipe metalica", productivity: 50, source: "Premissa E-Corp" },
+        { code: "ECB-080101", discipline: "Cobertura", name: "Instalacao de telhas metalicas/termoacusticas", unit: "m2", qty: 170, crew: "Equipe metalica", productivity: 57, source: "Premissa E-Corp" },
+        { code: "ECB-080102", discipline: "Cobertura", name: "Instalacao de rufos e calhas", unit: "m", qty: 50, crew: "Equipe metalica", productivity: 25, source: "Premissa E-Corp" },
+        { code: "ECB-120101", discipline: "Revestimentos", name: "Chapisco interno", unit: "m2", qty: 250, crew: "1 pedreiro + 1 servente", productivity: 50, source: "Cronograma aprovado" },
+        { code: "ECB-120102", discipline: "Revestimentos", name: "Chapisco externo", unit: "m2", qty: 250, crew: "1 pedreiro + 1 servente", productivity: 50, source: "Cronograma aprovado" },
+        { code: "ECB-120202", discipline: "Revestimentos", name: "Reboco interno", unit: "m2", qty: 250, crew: "1 pedreiro + 1 servente", productivity: 31.25, source: "Cronograma aprovado" },
+        { code: "ECB-120203", discipline: "Revestimentos", name: "Reboco externo", unit: "m2", qty: 250, crew: "1 pedreiro + 1 servente", productivity: 31.25, source: "Cronograma aprovado" },
+        { code: "ECB-140101", discipline: "Limpeza", name: "Arremates finais", unit: "dia", qty: 2, crew: "1 pedreiro + 1 servente", productivity: 1, source: "Premissa E-Corp" },
+        { code: "ECB-150101", discipline: "Entrega", name: "Entrega tecnica ao cliente", unit: "dia", qty: 1, crew: "Responsavel tecnico", productivity: 1, source: "Premissa E-Corp" }
+      ];
+      const ECB_PROCESS_BY_TYPE = {
+        "Casa terrea": ["Servicos Preliminares", "Fundacao", "Piso", "Alvenaria", "Cobertura", "Revestimentos", "Limpeza", "Entrega"],
+        "Sobrado": ["Servicos Preliminares", "Fundacao", "Piso", "Alvenaria", "Cobertura", "Revestimentos", "Limpeza", "Entrega"],
+        "Barracao": ["Servicos Preliminares", "Fundacao", "Piso", "Alvenaria", "Estrutura Metalica", "Cobertura", "Revestimentos", "Limpeza", "Entrega"],
+        "Reforma": ["Servicos Preliminares", "Alvenaria", "Revestimentos", "Limpeza", "Entrega"],
+        "Fundacao": ["Servicos Preliminares", "Fundacao", "Entrega"],
+        "Estrutura metalica": ["Servicos Preliminares", "Fundacao", "Estrutura Metalica", "Cobertura", "Entrega"]
+      };
       const seed = {
         colaboradores: [
           { id: "c1", nome: "Joao Pedro Silva", cpf: "111.222.333-44", telefone: "(18) 99999-1111", contrato: "Diarista", valor: 180, funcao: "Pedreiro" },
@@ -521,13 +578,67 @@
       }
 
       function getControle(obraId) {
-        if (!obraId) return { gastos: [], projetos: [], fotos: [], alocados: [], percentual: 0, resumo: "", status: "" };
-        db.controles[obraId] = db.controles[obraId] || { gastos: [], projetos: [], fotos: [], alocados: [], percentual: 0, resumo: "", status: "" };
+        if (!obraId) return { gastos: [], projetos: [], fotos: [], alocados: [], percentual: 0, resumo: "", status: "", engenhariaPlano: [] };
+        db.controles[obraId] = db.controles[obraId] || { gastos: [], projetos: [], fotos: [], alocados: [], percentual: 0, resumo: "", status: "", engenhariaPlano: [] };
         db.controles[obraId].gastos = db.controles[obraId].gastos || [];
         db.controles[obraId].projetos = db.controles[obraId].projetos || [];
         db.controles[obraId].fotos = db.controles[obraId].fotos || [];
         db.controles[obraId].alocados = db.controles[obraId].alocados || [];
+        db.controles[obraId].engenhariaPlano = db.controles[obraId].engenhariaPlano || [];
         return db.controles[obraId];
+      }
+
+      function planDays(item) {
+        if (item.unit === "dia") return Math.max(1, Math.ceil(Number(item.quantity || item.qty || 1)));
+        return Math.max(1, Math.ceil(Number(item.quantity || item.qty || 0) / Math.max(0.01, Number(item.productivity || 1))));
+      }
+
+      function planStats(plan = []) {
+        const plannedDays = plan.reduce((sum, item) => sum + planDays(item), 0);
+        const completed = plan.filter(item => Number(item.percent || 0) >= 100 || item.status === "Concluido").length;
+        const average = plan.length ? Math.round(plan.reduce((sum, item) => sum + Number(item.percent || 0), 0) / plan.length) : 0;
+        return { plannedDays, completed, total: plan.length, average };
+      }
+
+      function buildEngineeringPlan(obra) {
+        const disciplines = ECB_PROCESS_BY_TYPE[obra?.tipo] || ECB_PROCESS_BY_TYPE["Casa terrea"];
+        return ECB_PRODUCTIVITY_MASTER
+          .filter(item => disciplines.includes(item.discipline))
+          .filter(item => obra?.tipo === "Sobrado" || item.code !== "ECB-060202")
+          .map(item => ({
+            id: crypto.randomUUID(),
+            code: item.code,
+            discipline: item.discipline,
+            name: item.name,
+            unit: item.unit,
+            quantity: item.qty,
+            crew: item.crew,
+            productivity: item.productivity,
+            source: item.source,
+            status: "Nao iniciado",
+            percent: 0,
+            measured: 0
+          }));
+      }
+
+      function saveEngineeringPlanFromInputs(obraId) {
+        const controle = getControle(obraId);
+        controle.engenhariaPlano = (controle.engenhariaPlano || []).map(item => {
+          const row = document.querySelector(`[data-plan-row="${item.id}"]`);
+          if (!row) return item;
+          const quantity = Number(row.querySelector("[data-plan-quantity]")?.value || item.quantity || 0);
+          const measured = Number(row.querySelector("[data-plan-measured]")?.value || 0);
+          const status = row.querySelector("[data-plan-status]")?.value || item.status;
+          const percentByMeasured = quantity > 0 ? Math.round((measured / quantity) * 100) : 0;
+          const percent = Math.max(0, Math.min(100, Number(row.querySelector("[data-plan-percent]")?.value || percentByMeasured)));
+          return { ...item, quantity, measured, status, percent };
+        });
+        const stats = planStats(controle.engenhariaPlano);
+        controle.percentual = stats.average;
+        controle.atualizadoEm = new Date().toLocaleString("pt-BR");
+        byId("controlePercentual").value = stats.average;
+        save();
+        renderAll();
       }
 
       function selectedObraControleId() {
@@ -631,7 +742,35 @@
         byId("controleStatus").value = controle.status || obra?.status || "Em andamento";
         byId("controleResumo").value = controle.resumo || "";
         renderControleAlocados(obraId);
+        renderControleEngenharia(obraId);
         renderControleListas(obraId);
+      }
+
+      function renderControleEngenharia(obraId) {
+        const controle = getControle(obraId);
+        const plan = controle.engenhariaPlano || [];
+        const stats = planStats(plan);
+        byId("controlePlanoResumo").innerHTML = `
+          <div class="stat"><span class="muted">Prazo planejado</span><strong>${stats.plannedDays} dias</strong></div>
+          <div class="stat"><span class="muted">Avanco tecnico</span><strong>${stats.average}%</strong></div>
+          <div class="stat"><span class="muted">Etapas concluidas</span><strong>${stats.completed}/${stats.total}</strong></div>`;
+        if (!plan.length) {
+          byId("controlePlanoLista").innerHTML = `<div class="empty">Nenhum plano gerado. Clique em Gerar plano da obra para criar as etapas com base no tipo da obra.</div>`;
+          return;
+        }
+        const rows = plan.map(item => `
+          <tr data-plan-row="${item.id}">
+            <td><strong>${escapeHtml(item.name)}</strong><br><span class="muted">${escapeHtml(item.code)} - ${escapeHtml(item.discipline)}</span></td>
+            <td><input data-plan-quantity type="number" min="0" step="0.01" value="${Number(item.quantity || 0)}" style="max-width:90px" /> ${escapeHtml(item.unit)}</td>
+            <td>${escapeHtml(item.crew)}<br><span class="muted">${Number(item.productivity || 0)} ${escapeHtml(item.unit)}/dia</span></td>
+            <td>${planDays(item)} dia(s)</td>
+            <td><input data-plan-measured type="number" min="0" step="0.01" value="${Number(item.measured || 0)}" style="max-width:90px" /></td>
+            <td><input data-plan-percent type="number" min="0" max="100" value="${Number(item.percent || 0)}" style="max-width:72px" />%</td>
+            <td><select data-plan-status>
+              ${["Nao iniciado", "Em execucao", "Aguardando vistoria", "Aprovado para medicao", "Medido", "Concluido", "Pago"].map(status => `<option ${item.status === status ? "selected" : ""}>${status}</option>`).join("")}
+            </select></td>
+          </tr>`).join("");
+        byId("controlePlanoLista").innerHTML = `<table><thead><tr><th>Atividade</th><th>Qtd.</th><th>Equipe/produtividade</th><th>Prazo</th><th>Medido</th><th>%</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
       }
 
       function renderControleAlocados(obraId) {
@@ -666,6 +805,8 @@
         const controle = getControle(obra.id);
         const gastos = controle.gastos || [];
         const fotos = controle.fotos || [];
+        const plan = controle.engenhariaPlano || [];
+        const stats = planStats(plan);
         const total = gastos.reduce((sum, item) => sum + Number(item.valor || 0), 0);
         const equipeIds = new Set([...(controle.alocados || []), ...db.pontos.filter(p => p.obraId === obra.id).map(p => p.colaboradorId)]);
         const equipe = db.colaboradores.filter(c => equipeIds.has(c.id));
@@ -678,8 +819,11 @@
         byId("clienteGastoTotal").textContent = money(total);
         byId("clienteQtdCompras").textContent = gastos.length;
         byId("clienteQtdFotos").textContent = fotos.length;
+        byId("clientePrazoPlanejado").textContent = `${stats.plannedDays} dias`;
+        byId("clienteEtapasEngenharia").textContent = `${stats.completed}/${stats.total}`;
         byId("clienteResumoObra").textContent = controle.resumo || "Sem atualizacao cadastrada.";
         byId("clienteEquipe").innerHTML = equipe.length ? equipe.map(c => `<span class="pill">${escapeHtml(c.nome)} - ${escapeHtml(c.funcao)}</span>`).join(" ") : `<div class="empty">Equipe ainda nao vinculada.</div>`;
+        byId("clientePlanoEngenharia").innerHTML = plan.length ? `<table><thead><tr><th>Etapa</th><th>Status</th><th>Avanco</th></tr></thead><tbody>${plan.map(item => `<tr><td><strong>${escapeHtml(item.name)}</strong><br><span class="muted">${escapeHtml(item.discipline)}</span></td><td>${escapeHtml(item.status)}</td><td>${Number(item.percent || 0)}%</td></tr>`).join("")}</tbody></table>` : `<div class="empty">Plano de engenharia ainda nao gerado.</div>`;
         const gastoRows = gastos.slice().reverse().map(g => `<tr><td>${escapeHtml(g.descricao || "Compra")}</td><td>${escapeHtml(g.fornecedor || "-")}</td><td>${escapeHtml(g.data || "-")}</td><td>${money(g.valor)}</td></tr>`).join("");
         byId("clienteGastosLista").innerHTML = gastoRows ? `<table><thead><tr><th>Item</th><th>Fornecedor</th><th>Data</th><th>Valor</th></tr></thead><tbody>${gastoRows}</tbody></table>` : `<div class="empty">Nenhum gasto lancado ainda.</div>`;
         byId("clienteFotosLista").innerHTML = fotos.length ? `<div class="thumbs">${fotos.slice().reverse().map(f => `<div class="thumb"><img src="${f.url}" alt="${escapeHtml(f.legenda)}" /><div><strong>${escapeHtml(f.legenda || "Foto da obra")}</strong><br><span class="muted">${escapeHtml(f.data || "")}</span></div></div>`).join("")}</div>` : `<div class="empty">Nenhuma foto cadastrada ainda.</div>`;
@@ -892,6 +1036,23 @@
       });
 
       byId("controleObraSelect").addEventListener("change", renderControleObra);
+      byId("gerarPlanoEngenharia").addEventListener("click", () => {
+        const obraId = selectedObraControleId();
+        const obra = db.obras.find(o => o.id === obraId);
+        if (!obra) return;
+        const controle = getControle(obraId);
+        if ((controle.engenhariaPlano || []).length && !confirm("Substituir o plano de engenharia atual desta obra?")) return;
+        controle.engenhariaPlano = buildEngineeringPlan(obra);
+        const stats = planStats(controle.engenhariaPlano);
+        controle.percentual = stats.average;
+        controle.atualizadoEm = new Date().toLocaleString("pt-BR");
+        save();
+        renderAll();
+      });
+      byId("salvarPlanoEngenharia").addEventListener("click", () => {
+        const obraId = selectedObraControleId();
+        if (obraId) saveEngineeringPlanFromInputs(obraId);
+      });
       byId("salvarControleObra").addEventListener("click", () => {
         const obraId = selectedObraControleId();
         const obra = db.obras.find(o => o.id === obraId);
