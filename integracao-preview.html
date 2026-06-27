@@ -603,6 +603,7 @@
         }, 250);
       };
       const money = value => Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+      const formatNumber = value => Number(value || 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
       const byId = id => document.getElementById(id);
       const escapeHtml = value => String(value || "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
 
@@ -964,26 +965,115 @@
         URL.revokeObjectURL(url);
       }
 
-      function printCurrentPageHtml(html) {
-        const previous = document.getElementById("ecorpPrintArea");
-        if (previous) previous.remove();
-        const area = document.createElement("section");
-        area.id = "ecorpPrintArea";
-        area.innerHTML = html;
-        document.body.append(area);
+      function pdfSafe(value) {
+        return String(value ?? "")
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/[^\x20-\x7E]/g, " ")
+          .replace(/[\\()]/g, "\\$&");
+      }
 
-        const cleanup = () => {
-          window.removeEventListener("afterprint", cleanup);
-          setTimeout(() => area.remove(), 500);
+      function splitPdfText(value, maxChars) {
+        const words = String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").split(/\s+/);
+        const lines = [];
+        let line = "";
+        words.forEach(word => {
+          const next = line ? `${line} ${word}` : word;
+          if (next.length > maxChars && line) {
+            lines.push(line);
+            line = word;
+          } else {
+            line = next;
+          }
+        });
+        if (line) lines.push(line);
+        return lines.length ? lines : [""];
+      }
+
+      function buildSimplePdf(pages) {
+        const objects = [];
+        const addObject = content => {
+          objects.push(content);
+          return objects.length;
         };
-        window.addEventListener("afterprint", cleanup);
-        try {
-          window.focus();
-          window.print();
-        } catch (error) {
-          cleanup();
-          alert("Nao foi possivel abrir a impressao. Aperte Ctrl+P e escolha 'Salvar como PDF'.");
-        }
+        const fontId = addObject("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>");
+        const pageRefs = [];
+        pages.forEach(lines => {
+          const commands = ["BT", "/F1 8 Tf", "1 0 0 1 24 560 Tm", "12 TL"];
+          lines.forEach((line, index) => {
+            if (index > 0) commands.push("T*");
+            commands.push(`(${pdfSafe(line)}) Tj`);
+          });
+          commands.push("ET");
+          const stream = commands.join("\n");
+          const contentId = addObject(`<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`);
+          pageRefs.push(addObject(`<< /Type /Page /Parent 0 0 R /MediaBox [0 0 842 595] /Resources << /Font << /F1 ${fontId} 0 R >> >> /Contents ${contentId} 0 R >>`));
+        });
+        const pagesId = objects.length + 1;
+        const catalogId = objects.length + 2;
+        pageRefs.forEach(pageId => {
+          objects[pageId - 1] = objects[pageId - 1].replace("/Parent 0 0 R", `/Parent ${pagesId} 0 R`);
+        });
+        objects.push(`<< /Type /Pages /Kids [${pageRefs.map(id => `${id} 0 R`).join(" ")}] /Count ${pageRefs.length} >>`);
+        objects.push(`<< /Type /Catalog /Pages ${pagesId} 0 R >>`);
+
+        let pdf = "%PDF-1.4\n";
+        const offsets = [0];
+        objects.forEach((content, index) => {
+          offsets.push(pdf.length);
+          pdf += `${index + 1} 0 obj\n${content}\nendobj\n`;
+        });
+        const xref = pdf.length;
+        pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`;
+        offsets.slice(1).forEach(offset => {
+          pdf += `${String(offset).padStart(10, "0")} 00000 n \n`;
+        });
+        pdf += `trailer\n<< /Size ${objects.length + 1} /Root ${catalogId} 0 R >>\nstartxref\n${xref}\n%%EOF`;
+        return new Blob([pdf], { type: "application/pdf" });
+      }
+
+      function downloadBlob(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = filename;
+        document.body.append(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      }
+
+      function exportPlanoPdfFile(obra, stats, finance, rows) {
+        const pages = [];
+        let current = [];
+        const maxLines = 42;
+        const push = line => {
+          if (current.length >= maxLines) {
+            pages.push(current);
+            current = [];
+          }
+          current.push(line);
+        };
+        push("E-CORP SERVICOS LTDA");
+        push("PLANO DE ENGENHARIA ECB");
+        push(`Obra: ${obra?.nome || "-"} | Cliente: ${obra?.cliente || "-"} | Tipo: ${obra?.tipo || "-"}`);
+        push("Etapas, produtividade, prazo previsto, medicao fisica e financeiro de mao de obra por atividade.");
+        push("");
+        push(`Prazo planejado: ${stats.plannedDays} dias | Avanco tecnico: ${stats.average}% | Etapas concluidas: ${stats.completed}/${stats.total}`);
+        push(`MO prevista: ${money(finance.planned)} | MO medida: ${money(finance.measured)} | MO paga/saldo: ${money(finance.paid)} / ${money(finance.balance)}`);
+        push("");
+        rows.forEach(row => {
+          const title = `${row.etapa}. ${row.atividade} (${row.codigo} - ${row.disciplina})`;
+          splitPdfText(title, 112).forEach(push);
+          push(`Qtd.: ${formatNumber(row.quantidade)} ${row.unidade} | Equipe/produtividade: ${row.equipe} - ${formatNumber(row.produtividadeDia)} ${row.unidade}/dia | Prazo: ${row.diasPrevistos} dia(s)`);
+          push(`Medido: ${formatNumber(row.medido)} ${row.unidade} | Avanco: ${formatNumber(row.percentual)}% | Status: ${row.status}`);
+          push(`MO unit.: ${money(row.valorUnitarioMo)} / ${row.unidade} | Total: ${money(row.valorMoPrevisto)} | Medido: ${money(row.valorMoMedido)}`);
+          push(`Pago: ${money(row.valorPago)} | Saldo: ${money(row.saldo)} | Referencia ECB ${row.codigo}`);
+          push("");
+        });
+        if (current.length) pages.push(current);
+        const filename = `plano-engenharia-${normalizeText(obra?.nome || "obra").replace(/\s+/g, "-")}.pdf`;
+        downloadBlob(buildSimplePdf(pages), filename);
       }
 
       function exportCronogramaPdf() {
@@ -997,39 +1087,7 @@
         }
         const stats = planStats(getControle(obraId).engenhariaPlano || []);
         const finance = planFinancialStats(getControle(obraId).engenhariaPlano || []);
-        const tableRows = rows.map(row => `
-          <tr>
-            <td>${row.etapa}</td>
-            <td><strong>${escapeHtml(row.atividade)}</strong><br><small>${escapeHtml(row.codigo)} - ${escapeHtml(row.disciplina)}</small></td>
-            <td>${formatNumber(row.quantidade)}<br>${escapeHtml(row.unidade)}</td>
-            <td>${escapeHtml(row.equipe)}<br><small>${formatNumber(row.produtividadeDia)} ${escapeHtml(row.unidade)}/dia</small></td>
-            <td>${row.diasPrevistos}</td>
-            <td>${formatNumber(row.medido)}<br>${escapeHtml(row.unidade)}</td>
-            <td>${formatNumber(row.percentual)}%</td>
-            <td>${money(row.valorUnitarioMo)} / ${escapeHtml(row.unidade)}<br><small>Referencia ECB ${escapeHtml(row.codigo)}</small><br><small>Total: ${money(row.valorMoPrevisto)} | Medido: ${money(row.valorMoMedido)}</small></td>
-            <td>${money(row.valorPago)}<br><small>Saldo: ${money(row.saldo)}</small></td>
-            <td>${escapeHtml(row.status)}</td>
-          </tr>`).join("");
-        const html = `
-              <div class="print-head">
-                <p class="print-muted">E-CORP SERVICOS LTDA</p>
-                <h1 class="print-title">Plano de engenharia ECB</h1>
-                <p><strong>${escapeHtml(obra?.nome || "-")}</strong> | Cliente: ${escapeHtml(obra?.cliente || "-")} | Tipo: ${escapeHtml(obra?.tipo || "-")}</p>
-                <p class="print-muted">Etapas, produtividade, prazo previsto, medicao fisica e financeiro de mao de obra por atividade.</p>
-              </div>
-              <div class="print-stats">
-                <div class="print-stat"><span class="print-muted">Prazo planejado</span><strong>${stats.plannedDays} dias</strong></div>
-                <div class="print-stat"><span class="print-muted">Avanco tecnico</span><strong>${stats.average}%</strong></div>
-                <div class="print-stat"><span class="print-muted">Etapas concluidas</span><strong>${stats.completed}/${stats.total}</strong></div>
-                <div class="print-stat"><span class="print-muted">MO prevista</span><strong>${money(finance.planned)}</strong></div>
-                <div class="print-stat"><span class="print-muted">MO medida</span><strong>${money(finance.measured)}</strong></div>
-                <div class="print-stat"><span class="print-muted">MO paga / saldo</span><strong>${money(finance.paid)} / ${money(finance.balance)}</strong></div>
-              </div>
-              <table>
-                <thead><tr><th>#</th><th>Atividade</th><th>Qtd.</th><th>Equipe/produtividade</th><th>Prazo</th><th>Medido</th><th>%</th><th>MO unit. / total</th><th>Pago</th><th>Status</th></tr></thead>
-                <tbody>${tableRows}</tbody>
-              </table>`;
-        printCurrentPageHtml(html);
+        exportPlanoPdfFile(obra, stats, finance, rows);
       }
 
       function getClienteObraLogada() {
