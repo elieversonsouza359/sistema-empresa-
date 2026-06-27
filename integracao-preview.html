@@ -290,13 +290,28 @@
             <button class="primary" id="salvarControleObra" type="button">Salvar andamento</button>
           </div>
 
+          <form class="card grid cols-3" id="controleObraDadosForm">
+            <h3 style="grid-column:1 / -1">Dados da obra e do cliente</h3>
+            <label>Nome da obra<input id="controleObraNome" required /></label>
+            <label>Cliente<input id="controleObraCliente" /></label>
+            <label>Endereco<input id="controleObraEndereco" /></label>
+            <label>Tipo<select id="controleObraTipo"><option>Casa terrea</option><option>Sobrado</option><option>Barracao</option><option>Reforma</option><option>Fundacao</option><option>Estrutura metalica</option></select></label>
+            <label>Inicio previsto<input id="controleObraInicio" type="date" /></label>
+            <label>Usuario do cliente<input id="controleObraClienteUsuario" /></label>
+            <label>Senha do cliente<input id="controleObraClienteSenha" /></label>
+            <button class="primary" type="submit">Salvar dados da obra</button>
+          </form>
+
           <div class="card">
             <div class="toolbar">
               <div>
                 <h3>Plano de engenharia ECB</h3>
                 <p class="muted">Etapas, produtividade, prazo previsto, medicao fisica e financeiro de mao de obra por atividade.</p>
               </div>
-              <button class="primary" id="gerarPlanoEngenharia" type="button">Gerar plano da obra</button>
+              <div class="actions">
+                <button class="primary" id="gerarPlanoEngenharia" type="button">Gerar plano da obra</button>
+                <button id="recalcularPlanoEngenharia" type="button">Recalcular pela metragem</button>
+              </div>
             </div>
             <div id="controlePlanoResumo" class="grid cols-3" style="margin-top:12px"></div>
             <div id="controlePlanoLista" style="margin-top:12px"></div>
@@ -444,6 +459,8 @@
       </section>
     </main>
 
+    <script src="_ecorp_site_zip/client/public/orcamentos/sinapi-data.js"></script>
+    <script src="_ecorp_site_zip/client/public/orcamentos/cdhu-data.js"></script>
     <script>
       const storeKey = "ecorp-operacional-preview-v1";
       const adminSessionKey = "ecorp-admin-auth-preview";
@@ -509,6 +526,17 @@
         { test: item => item.discipline === "Piso", value: 2833.33 },
         { test: item => item.discipline === "Limpeza" || item.discipline === "Entrega", value: 1250 }
       ];
+      const ECB_REFERENCE_TERMS = {
+        "Servicos Preliminares": ["locacao", "gabarito", "marcacao", "canteiro"],
+        "Fundacao": ["baldrame", "broca", "fundacao", "escavacao", "armadura", "concreto"],
+        "Piso": ["contrapiso", "piso", "concretagem"],
+        "Alvenaria": ["alvenaria", "bloco", "fiada", "cinta"],
+        "Estrutura Metalica": ["estrutura metalica", "tesoura metalica", "terca metalica"],
+        "Cobertura": ["cobertura", "telha", "rufo", "calha"],
+        "Revestimentos": ["chapisco", "reboco", "emboco", "revestimento argamassa"],
+        "Limpeza": ["limpeza", "arremate"],
+        "Entrega": ["limpeza", "entrega"]
+      };
       const seed = {
         colaboradores: [
           { id: "c1", nome: "Joao Pedro Silva", cpf: "111.222.333-44", telefone: "(18) 99999-1111", contrato: "Diarista", valor: 180, funcao: "Pedreiro" },
@@ -607,9 +635,8 @@
         db.controles[obraId].fotos = db.controles[obraId].fotos || [];
         db.controles[obraId].alocados = db.controles[obraId].alocados || [];
         db.controles[obraId].engenhariaPlano = db.controles[obraId].engenhariaPlano || [];
-        db.controles[obraId].engenhariaPlano = db.controles[obraId].engenhariaPlano.map(item => ({
+        db.controles[obraId].engenhariaPlano = db.controles[obraId].engenhariaPlano.map(item => recalcActivityLabor({
           ...item,
-          laborValue: Number(item.laborValue || 0) > 0 ? Number(item.laborValue) : laborValueForActivity(item),
           paidValue: Number(item.paidValue || 0)
         }));
         return db.controles[obraId];
@@ -627,12 +654,89 @@
         return { plannedDays, completed, total: plan.length, average };
       }
 
+      function normalizeUnit(value) {
+        return normalizeText(value).replace("m²", "m2").replace("m³", "m3").replace(" ", "");
+      }
+
+      function compatibleUnit(a, b) {
+        const left = normalizeUnit(a);
+        const right = normalizeUnit(b);
+        if (!left || !right) return false;
+        if (left === right) return true;
+        return (left === "un" && right === "unidade") || (left === "m2" && right === "m²") || (left === "m3" && right === "m³");
+      }
+
+      function referenceTermsForActivity(item) {
+        const base = [item.name, item.discipline, ...(ECB_REFERENCE_TERMS[item.discipline] || [])].map(normalizeText).join(" ");
+        return base.split(/\s+/).filter(term => term.length > 3);
+      }
+
+      function findReferenceService(item) {
+        const services = [
+          ...(window.SINAPI_DATA?.services || []),
+          ...(window.CDHU_DATA?.services || [])
+        ];
+        if (!services.length) return null;
+        const terms = referenceTermsForActivity(item);
+        const itemUnit = normalizeUnit(item.unit);
+        const candidates = services
+          .filter(service => compatibleUnit(itemUnit, service.unit))
+          .map(service => {
+            const desc = normalizeText(service.description);
+            const score = terms.reduce((sum, term) => sum + (desc.includes(term) ? 1 : 0), 0);
+            return { service, score };
+          })
+          .filter(entry => entry.score >= 2)
+          .sort((a, b) => b.score - a.score || Number(b.service.price || 0) - Number(a.service.price || 0));
+        return candidates[0]?.service || null;
+      }
+
+      function referenceUnitValueForActivity(item) {
+        const service = findReferenceService(item);
+        if (service) {
+          return {
+            unitValue: Number(service.price || 0),
+            source: service.source || service.type || "Base de referencia",
+            code: service.code || service.originalCode || "",
+            description: service.description || ""
+          };
+        }
+        const quantity = Math.max(1, Number(item.quantity || item.qty || 1));
+        const fallback = laborValueForActivity(item) / quantity;
+        return {
+          unitValue: fallback,
+          source: "Referencia ECB",
+          code: item.code || "",
+          description: "Valor unitario calculado pela referencia ECB inicial"
+        };
+      }
+
       function laborValueForActivity(item) {
         const normalized = { ...item, name: normalizeText(item.name), discipline: item.discipline };
         const hit = ECB_LABOR_VALUE_HINTS.find(rule => rule.test(normalized));
         if (hit) return hit.value;
         if (item.unit === "dia") return Number(item.quantity || item.qty || 1) * 1000;
         return Number(item.quantity || item.qty || 0) * 45;
+      }
+
+      function recalcActivityLabor(item) {
+        const quantity = Math.max(0, Number(item.quantity || item.qty || 0));
+        const reference = Number(item.referenceUnitValue || item.laborUnitValue || 0) > 0
+          ? {
+              unitValue: Number(item.referenceUnitValue || item.laborUnitValue),
+              source: item.referenceSource || "Base de referencia",
+              code: item.referenceCode || "",
+              description: item.referenceDescription || ""
+            }
+          : referenceUnitValueForActivity(item);
+        return {
+          ...item,
+          referenceUnitValue: reference.unitValue,
+          referenceSource: reference.source,
+          referenceCode: reference.code,
+          referenceDescription: reference.description,
+          laborValue: quantity * reference.unitValue
+        };
       }
 
       function planFinancialStats(plan = []) {
@@ -654,7 +758,7 @@
         return ECB_PRODUCTIVITY_MASTER
           .filter(item => disciplines.includes(item.discipline))
           .filter(item => obra?.tipo === "Sobrado" || item.code !== "ECB-060202")
-          .map(item => ({
+          .map(item => recalcActivityLabor({
             id: crypto.randomUUID(),
             code: item.code,
             discipline: item.discipline,
@@ -667,7 +771,6 @@
             status: "Nao iniciado",
             percent: 0,
             measured: 0,
-            laborValue: laborValueForActivity(item),
             paidValue: 0
           }));
       }
@@ -682,9 +785,9 @@
           const status = row.querySelector("[data-plan-status]")?.value || item.status;
           const percentByMeasured = quantity > 0 ? Math.round((measured / quantity) * 100) : 0;
           const percent = Math.max(0, Math.min(100, Number(row.querySelector("[data-plan-percent]")?.value || percentByMeasured)));
-          const laborValue = Number(row.querySelector("[data-plan-labor]")?.value || item.laborValue || 0);
+          const referenceUnitValue = Number(row.querySelector("[data-plan-unit-value]")?.value || item.referenceUnitValue || item.laborUnitValue || 0);
           const paidValue = Number(row.querySelector("[data-plan-paid]")?.value || 0);
-          return { ...item, quantity, measured, status, percent, laborValue, paidValue };
+          return recalcActivityLabor({ ...item, quantity, measured, status, percent, referenceUnitValue, paidValue });
         });
         const stats = planStats(controle.engenhariaPlano);
         controle.percentual = stats.average;
@@ -794,6 +897,13 @@
         byId("controlePercentual").value = controle.percentual || 0;
         byId("controleStatus").value = controle.status || obra?.status || "Em andamento";
         byId("controleResumo").value = controle.resumo || "";
+        byId("controleObraNome").value = obra?.nome || "";
+        byId("controleObraCliente").value = obra?.cliente || "";
+        byId("controleObraEndereco").value = obra?.endereco || "";
+        byId("controleObraTipo").value = obra?.tipo || "Casa terrea";
+        byId("controleObraInicio").value = obra?.inicio || "";
+        byId("controleObraClienteUsuario").value = obra?.clienteUsuario || "";
+        byId("controleObraClienteSenha").value = obra?.clienteSenha || "";
         renderControleAlocados(obraId);
         renderControleEngenharia(obraId);
         renderControleListas(obraId);
@@ -829,14 +939,14 @@
             <td>${planDays(item)} dia(s)</td>
             <td><input data-plan-measured type="number" min="0" step="0.01" value="${Number(item.measured || 0)}" style="max-width:90px" /></td>
             <td><input data-plan-percent type="number" min="0" max="100" value="${Number(item.percent || 0)}" style="max-width:72px" />%</td>
-            <td><input data-plan-labor type="number" min="0" step="0.01" value="${laborValue.toFixed(2)}" style="max-width:110px" /><br><span class="muted">Medido: ${money(measuredValue)}</span></td>
+            <td><input data-plan-unit-value type="number" min="0" step="0.01" value="${Number(item.referenceUnitValue || 0).toFixed(2)}" style="max-width:110px" /> / ${escapeHtml(item.unit)}<br><span class="muted">${escapeHtml(item.referenceSource || "Base")} ${escapeHtml(item.referenceCode || "")}</span><br><span class="muted">Total: ${money(laborValue)} | Medido: ${money(measuredValue)}</span></td>
             <td><input data-plan-paid type="number" min="0" step="0.01" value="${paidValue.toFixed(2)}" style="max-width:110px" /><br><span class="muted">Saldo: ${money(Math.max(0, laborValue - paidValue))}</span></td>
             <td><select data-plan-status>
               ${["Nao iniciado", "Em execucao", "Aguardando vistoria", "Aprovado para medicao", "Medido", "Concluido", "Pago"].map(status => `<option ${item.status === status ? "selected" : ""}>${status}</option>`).join("")}
             </select></td>
           </tr>`;
         }).join("");
-        byId("controlePlanoLista").innerHTML = `<table><thead><tr><th>Atividade</th><th>Qtd.</th><th>Equipe/produtividade</th><th>Prazo</th><th>Medido</th><th>%</th><th>MO prevista</th><th>Pago</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
+        byId("controlePlanoLista").innerHTML = `<table><thead><tr><th>Atividade</th><th>Qtd.</th><th>Equipe/produtividade</th><th>Prazo</th><th>Medido</th><th>%</th><th>MO unit. / total</th><th>Pago</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>`;
       }
 
       function renderControleAlocados(obraId) {
@@ -1109,6 +1219,25 @@
       });
 
       byId("controleObraSelect").addEventListener("change", renderControleObra);
+      byId("controleObraDadosForm").addEventListener("submit", e => {
+        e.preventDefault();
+        const obraId = selectedObraControleId();
+        const obra = db.obras.find(o => o.id === obraId);
+        if (!obra) return;
+        const previousType = obra.tipo;
+        obra.nome = byId("controleObraNome").value;
+        obra.cliente = byId("controleObraCliente").value;
+        obra.endereco = byId("controleObraEndereco").value;
+        obra.tipo = byId("controleObraTipo").value;
+        obra.inicio = byId("controleObraInicio").value;
+        obra.clienteUsuario = byId("controleObraClienteUsuario").value;
+        obra.clienteSenha = byId("controleObraClienteSenha").value;
+        if (previousType !== obra.tipo && getControle(obraId).engenhariaPlano.length) {
+          alert("Tipo da obra alterado. Se quiser trocar as etapas, clique em Gerar plano da obra e confirme a substituicao.");
+        }
+        save();
+        renderAll();
+      });
       byId("gerarPlanoEngenharia").addEventListener("click", () => {
         const obraId = selectedObraControleId();
         const obra = db.obras.find(o => o.id === obraId);
@@ -1121,6 +1250,15 @@
         controle.atualizadoEm = new Date().toLocaleString("pt-BR");
         save();
         renderAll();
+      });
+      byId("recalcularPlanoEngenharia").addEventListener("click", () => {
+        const obraId = selectedObraControleId();
+        const controle = getControle(obraId);
+        if (!controle.engenhariaPlano.length) {
+          alert("Gere o plano da obra primeiro.");
+          return;
+        }
+        saveEngineeringPlanFromInputs(obraId);
       });
       byId("salvarPlanoEngenharia").addEventListener("click", () => {
         const obraId = selectedObraControleId();
