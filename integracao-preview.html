@@ -1937,7 +1937,7 @@
             </main>
             <footer><div>Fontes: ${(resultado.fontesTecnicas || []).slice(0, 4).map(ref => esc(ref.id)).join(", ")} | BMU ${esc(resultado.metadados.versaoBMU)}</div><div class="stamp">E-CORP SERVICOS LTDA<br>Prancha gerada automaticamente</div></footer>
           </section>
-          <script>setTimeout(() => window.print(), 600);</script>
+          <script>setTimeout(() => window.print(), 600);<\/script>
           </body></html>`;
         const win = window.open("", "_blank");
         if (!win) {
