@@ -280,11 +280,12 @@
             <div class="toolbar">
               <div>
                 <h3>Sub menu administrativo</h3>
-                <p class="muted">Acesso interno do ADM para operacao, controle das obras e orcamentos.</p>
+                <p class="muted">Acesso interno do ADM para operacao, controle das obras, engenharia e orcamentos.</p>
               </div>
               <div class="actions">
                 <button type="button" data-view="operacao">Operacao</button>
                 <button type="button" data-view="controleObra">Controle de Obra</button>
+                <button type="button" data-view="engenharia">Engenharia</button>
                 <button type="button" data-view="orcamentos">Orcamentos</button>
               </div>
             </div>
@@ -302,6 +303,7 @@
               <div class="checks">
                 <label><input id="colabPermOperacao" type="checkbox" /> Operacao</label>
                 <label><input id="colabPermControleObra" type="checkbox" /> Controle de Obra</label>
+                <label><input id="colabPermEngenharia" type="checkbox" /> Engenharia</label>
                 <label><input id="colabPermOrcamentos" type="checkbox" /> Orcamentos</label>
                 <label><input id="colabPermMateriais" type="checkbox" /> Materiais</label>
               </div>
@@ -524,6 +526,68 @@
         </div>
       </section>
 
+      <section class="view" id="engenharia">
+        <div class="toolbar">
+          <div>
+            <h2>Engenharia</h2>
+            <p class="muted">Nucleo tecnico para pre-dimensionamento, quantitativos de concreto, ferragem, formas e materiais.</p>
+          </div>
+          <span class="pill" id="engenhariaPermissao">Acesso restrito</span>
+        </div>
+        <div id="engenhariaBloqueado" class="card admin-lock hidden">
+          <h3>Acesso restrito</h3>
+          <p class="muted">Esta area e liberada para o ADM ou funcionario com permissao de Engenharia.</p>
+          <button class="primary" type="button" onclick="showView('admin')">Entrar como ADM</button>
+        </div>
+        <div id="engenhariaPanel" class="grid hidden">
+          <form class="card grid cols-3" id="engenhariaForm">
+            <h3 style="grid-column:1 / -1">Dados para calculo estrutural preliminar</h3>
+            <label>Obra<select id="engenhariaObraSelect"></select></label>
+            <label>Tipo de fundacao<select id="engenhariaFundacao"><option value="baldrame">Sapata + baldrame</option><option value="radier">Radier</option><option value="broca_baldrame">Broca + bloco + baldrame</option><option value="sapata">Sapatas isoladas</option></select></label>
+            <label>Fase<select id="engenhariaFase"><option value="pre_dimensionamento">Pre-dimensionamento</option><option value="estudo_viabilidade">Estudo de viabilidade</option><option value="projeto_orcamento">Projeto para orcamento</option></select></label>
+            <label>Comprimento da obra (m)<input id="engenhariaComprimento" min="0" step="0.01" type="number" /></label>
+            <label>Largura da obra (m)<input id="engenhariaLargura" min="0" step="0.01" type="number" /></label>
+            <label>Area de projecao (m2)<input id="engenhariaArea" min="0" step="0.01" type="number" /></label>
+            <label>Perimetro/baldrame (m)<input id="engenhariaPerimetro" min="0" step="0.01" type="number" /></label>
+            <label>Pavimentos<input id="engenhariaPavimentos" min="1" step="1" type="number" /></label>
+            <label>Pe-direito medio (m)<input id="engenhariaPeDireito" min="0" step="0.01" type="number" /></label>
+            <label>Solo informado<select id="engenhariaSolo"><option value="sem_spt">Sem SPT / estimado</option><option value="firme">Solo firme informado</option><option value="aterro">Aterro ou duvidoso</option><option value="spt">Com SPT informado</option></select></label>
+            <label>SPT medio<input id="engenhariaSpt" min="0" step="1" type="number" /></label>
+            <label>Tensao adm. solo (kPa)<input id="engenhariaTensaoSolo" min="0" step="1" type="number" placeholder="Ex.: 200" /></label>
+            <label>Qtd. sapatas/blocos<input id="engenhariaQtdSapatas" min="0" step="1" type="number" /></label>
+            <label>Sapata C x L x H (m)<input id="engenhariaSapataDim" placeholder="0.80x0.80x0.40" /></label>
+            <label>Baldrame Larg. x Alt. (m)<input id="engenhariaBaldrameDim" placeholder="0.20x0.30" /></label>
+            <label>Qtd. brocas<input id="engenhariaQtdBrocas" min="0" step="1" type="number" /></label>
+            <label>Broca diam. x prof. (m)<input id="engenhariaBrocaDim" placeholder="0.25x2.00" /></label>
+            <label>Radier espessura (m)<input id="engenhariaRadierEsp" min="0" step="0.01" type="number" placeholder="0.12" /></label>
+            <label>Perda concreto (%)<input id="engenhariaPerdaConcreto" min="0" step="0.1" type="number" value="8" /></label>
+            <label>Peso tela radier (kg/m2)<input id="engenhariaTelaKg" min="0" step="0.01" type="number" value="3.11" /></label>
+            <button class="primary" type="submit">Calcular engenharia</button>
+            <button id="engenhariaCarregarObra" type="button">Carregar dados da obra</button>
+            <button id="engenhariaSalvarResultado" type="button">Salvar resultado na obra</button>
+          </form>
+          <div class="grid cols-3">
+            <div class="card stat"><span class="muted">Concreto final</span><strong id="engenhariaConcretoTotal">0 m3</strong></div>
+            <div class="card stat"><span class="muted">Ferragem total</span><strong id="engenhariaAcoTotal">0 kg</strong></div>
+            <div class="card stat"><span class="muted">Confianca</span><strong id="engenhariaConfianca">0%</strong></div>
+          </div>
+          <div class="grid cols-2">
+            <div class="card">
+              <h3>Quantitativos calculados</h3>
+              <div id="engenhariaQuantitativos"><div class="empty">Preencha os dados e clique em calcular.</div></div>
+            </div>
+            <div class="card">
+              <h3>Lista de materiais</h3>
+              <div id="engenhariaMateriais"><div class="empty">A lista aparece apos o calculo.</div></div>
+            </div>
+          </div>
+          <div class="card">
+            <h3>Memoria, hipoteses e avisos</h3>
+            <div id="engenhariaMemoria"><div class="empty">O sistema registrara as formulas BMU e as hipoteses usadas.</div></div>
+          </div>
+        </div>
+      </section>
+
       <section class="view" id="orcamentos">
         <div class="module">
           <div class="module-head">
@@ -577,6 +641,7 @@
       const permissionConfig = [
         { key: "operacao", label: "Operacao", view: "operacao" },
         { key: "controleObra", label: "Controle de Obra", view: "controleObra" },
+        { key: "engenharia", label: "Engenharia", view: "engenharia" },
         { key: "orcamentos", label: "Orcamentos", view: "orcamentos" },
         { key: "materiais", label: "Materiais", view: "materiais" }
       ];
@@ -675,6 +740,7 @@
       let adminAutenticado = localStorage.getItem(adminSessionKey) === "ok";
       let colaboradorLogadoId = localStorage.getItem(colaboradorSessionKey) || "";
       let clienteObraLogadaId = localStorage.getItem(clienteSessionKey) || "";
+      let engenhariaResultadoAtual = null;
       let saveTimer = null;
       let syncInProgress = false;
       const persistLocal = () => localStorage.setItem(storeKey, JSON.stringify(db));
@@ -723,6 +789,13 @@
           { selector: "#controleProjetoForm", title: "Projetos anexados", text: "Guarde os PDFs de projeto da obra para consulta futura." },
           { selector: "#controleFotoForm", title: "Fotos do avanco", text: "Anexe fotos da obra com data e legenda. Elas aparecem no controle e podem aparecer para o cliente." },
           { selector: "#controleAlocados", title: "Funcionarios alocados", text: "Marque quem esta trabalhando na obra. A informacao salva automaticamente e tambem alimenta a Area do Cliente." }
+        ],
+        engenharia: [
+          { selector: "#engenhariaForm", title: "Entrada de engenharia", text: "Escolha a obra, o tipo de fundacao e informe medidas para calcular concreto, formas e ferragem preliminar." },
+          { selector: "#engenhariaCarregarObra", title: "Carregar dados da obra", text: "Use este botao para puxar area, perimetro, pavimentos e pe-direito ja cadastrados no Admin ou Controle de Obra." },
+          { selector: "#engenhariaQuantitativos", title: "Quantitativos", text: "Aqui aparecem volumes de concreto, area de forma e pesos de aco calculados com memoria BMU." },
+          { selector: "#engenhariaMateriais", title: "Materiais", text: "A lista resume o que comprar ou cotar: concreto, barras, estribos, tela e formas." },
+          { selector: "#engenhariaMemoria", title: "Memoria tecnica", text: "Confira hipoteses, avisos, confianca e formulas usadas. Pre-dimensionamento precisa validacao tecnica." }
         ],
         cliente: [
           { selector: "#clienteLoginForm", title: "Login do cliente", text: "O cliente entra com o usuario e senha definidos no cadastro da obra." },
@@ -990,6 +1063,7 @@
         if (adminAutenticado) return true;
         if (view === "operacao") return hasColabPermission("operacao");
         if (view === "controleObra") return hasColabPermission("controleObra");
+        if (view === "engenharia") return hasColabPermission("engenharia");
         if (view === "orcamentos") return hasColabPermission("orcamentos");
         if (view === "materiais") return hasColabPermission("materiais");
         return true;
@@ -1266,6 +1340,170 @@
           }));
       }
 
+      function parseDims(value, fallback = []) {
+        const values = String(value || "").replace(/,/g, ".").split(/[xX* ]+/).map(Number).filter(v => Number.isFinite(v) && v > 0);
+        return fallback.map((item, index) => values[index] || item);
+      }
+
+      function engenhariaNumber(id, fallback = 0) {
+        const value = Number(byId(id)?.value || 0);
+        return Number.isFinite(value) && value > 0 ? value : fallback;
+      }
+
+      function engenhariaBmu(codigo, nome, unidade, valor, entradas, formula, memoria) {
+        return { codigo, nome, unidade, valor: Number(valor || 0), entradas, formula, memoria };
+      }
+
+      function engenhariaPesoBarra(diametroMm, comprimentoM, quantidade = 1) {
+        return (diametroMm * diametroMm / 162) * comprimentoM * quantidade;
+      }
+
+      function engenhariaQtdPorEspacamento(comprimentoM, espacamentoM) {
+        if (!comprimentoM || !espacamentoM) return 0;
+        return Math.floor(comprimentoM / espacamentoM) + 1;
+      }
+
+      function loadEngenhariaFromObra() {
+        const obra = db.obras.find(o => o.id === byId("engenhariaObraSelect").value) || db.obras[0];
+        if (!obra) return;
+        const metrics = getObraMetragem(obra);
+        const comprimentoEstimado = metrics.areaTerrea && metrics.perimetro ? Math.max(1, metrics.perimetro / 4) : "";
+        const larguraEstimada = metrics.areaTerrea && comprimentoEstimado ? metrics.areaTerrea / comprimentoEstimado : "";
+        byId("engenhariaFundacao").value = obra.fundacao === "radier" ? "radier" : obra.fundacao === "sapata" ? "sapata" : "baldrame";
+        byId("engenhariaComprimento").value = comprimentoEstimado ? Number(comprimentoEstimado.toFixed(2)) : "";
+        byId("engenhariaLargura").value = larguraEstimada ? Number(larguraEstimada.toFixed(2)) : "";
+        byId("engenhariaArea").value = metrics.areaTerrea || metrics.totalArea || "";
+        byId("engenhariaPerimetro").value = metrics.perimetro || "";
+        byId("engenhariaPavimentos").value = metrics.pavimentos || 1;
+        byId("engenhariaPeDireito").value = metrics.peDireito || "";
+        byId("engenhariaQtdSapatas").value = metrics.perimetro ? Math.max(4, Math.ceil(metrics.perimetro / 4)) : "";
+        byId("engenhariaQtdBrocas").value = metrics.fundacao === "radier" ? 0 : (metrics.perimetro ? Math.max(4, Math.ceil(metrics.perimetro / 4)) : "");
+      }
+
+      function calcularEngenhariaCore() {
+        const obra = db.obras.find(o => o.id === byId("engenhariaObraSelect").value) || {};
+        const tipoFundacao = byId("engenhariaFundacao").value;
+        const comprimento = engenhariaNumber("engenhariaComprimento");
+        const largura = engenhariaNumber("engenhariaLargura");
+        const area = engenhariaNumber("engenhariaArea", comprimento * largura || Number(obra.areaTerrea || 0) || Number(obra.areaSuperior || 0));
+        const perimetro = engenhariaNumber("engenhariaPerimetro", comprimento && largura ? 2 * (comprimento + largura) : Number(obra.perimetro || 0));
+        const pavimentos = Math.max(1, Math.round(engenhariaNumber("engenhariaPavimentos", Number(obra.areaSuperior || 0) > 0 ? 2 : 1)));
+        const peDireito = engenhariaNumber("engenhariaPeDireito", Number(obra.peDireito || 0) || 2.8);
+        const qtdSapatas = Math.round(engenhariaNumber("engenhariaQtdSapatas", perimetro ? Math.max(4, Math.ceil(perimetro / 4)) : 0));
+        const qtdBrocas = Math.round(engenhariaNumber("engenhariaQtdBrocas", tipoFundacao === "broca_baldrame" ? qtdSapatas : 0));
+        const [sapC, sapL, sapH] = parseDims(byId("engenhariaSapataDim").value, [0.8, 0.8, 0.4]);
+        const [balB, balH] = parseDims(byId("engenhariaBaldrameDim").value, [0.2, 0.3]);
+        const [brocaD, brocaProf] = parseDims(byId("engenhariaBrocaDim").value, [0.25, 2]);
+        const radierEsp = engenhariaNumber("engenhariaRadierEsp", 0.12);
+        const perda = engenhariaNumber("engenhariaPerdaConcreto", 8);
+        const telaKgM2 = engenhariaNumber("engenhariaTelaKg", 3.11);
+        const solo = byId("engenhariaSolo").value;
+        const spt = engenhariaNumber("engenhariaSpt");
+        const tensaoSolo = engenhariaNumber("engenhariaTensaoSolo", solo === "spt" || spt >= 15 ? 250 : solo === "aterro" ? 100 : 200);
+        const memoria = [];
+        const formulas = [];
+        const hipoteses = [
+          `Fase: ${byId("engenhariaFase").value}.`,
+          `Fundacao analisada: ${byId("engenhariaFundacao").selectedOptions[0]?.textContent || tipoFundacao}.`,
+          `Area considerada: ${formatNumber(area)} m2; perimetro considerado: ${formatNumber(perimetro)} m.`
+        ];
+        const avisos = [];
+        if (!area || !perimetro) avisos.push("Informe area e perimetro para melhorar o calculo.");
+        if (solo !== "spt") avisos.push("Resultado preliminar sem sondagem SPT. Necessita validacao de engenheiro responsavel.");
+        if (solo === "aterro") avisos.push("Aterro ou solo duvidoso aumenta risco. Evite liberar projeto executivo sem investigacao geotecnica.");
+        const usarBaldrame = ["baldrame", "broca_baldrame"].includes(tipoFundacao);
+        const usarSapatas = ["baldrame", "sapata", "broca_baldrame"].includes(tipoFundacao);
+        const usarRadier = tipoFundacao === "radier";
+        const vBaldrame = usarBaldrame ? perimetro * balB * balH : 0;
+        const formaBaldrame = usarBaldrame ? (2 * balH + balB) * perimetro : 0;
+        const vSapatas = usarSapatas ? qtdSapatas * sapC * sapL * sapH : 0;
+        const formaSapatas = usarSapatas ? qtdSapatas * 2 * (sapC + sapL) * sapH : 0;
+        const vBrocas = qtdBrocas ? qtdBrocas * Math.PI * Math.pow(brocaD / 2, 2) * brocaProf : 0;
+        const formaBrocas = qtdBrocas ? qtdBrocas * Math.PI * brocaD * brocaProf : 0;
+        const vRadier = usarRadier ? area * radierEsp : 0;
+        const formaRadier = usarRadier ? perimetro * radierEsp : 0;
+        const concretoBruto = vBaldrame + vSapatas + vBrocas + vRadier;
+        const concretoFinal = concretoBruto * (1 + perda / 100);
+        formulas.push(engenhariaBmu("BMU-000405", "Volume de baldrame", "m3", vBaldrame, { comprimento_m: perimetro, largura_m: balB, altura_m: balH }, "V = L x b x h", [`${formatNumber(perimetro)} x ${formatNumber(balB)} x ${formatNumber(balH)} = ${formatNumber(vBaldrame)} m3`]));
+        formulas.push(engenhariaBmu("BMU-000404", "Volume de sapata retangular", "m3", vSapatas, { quantidade: qtdSapatas, comprimento_m: sapC, largura_m: sapL, altura_m: sapH }, "V = C x L x H", [`${qtdSapatas} x ${formatNumber(sapC)} x ${formatNumber(sapL)} x ${formatNumber(sapH)} = ${formatNumber(vSapatas)} m3`]));
+        formulas.push(engenhariaBmu("BMU-000403", "Volume de broca", "m3", vBrocas, { quantidade: qtdBrocas, diametro_m: brocaD, profundidade_m: brocaProf }, "V = pi x r2 x h", [`${qtdBrocas} broca(s) diam. ${formatNumber(brocaD)} m x ${formatNumber(brocaProf)} m = ${formatNumber(vBrocas)} m3`]));
+        formulas.push(engenhariaBmu("BMU-000004", "Volume de radier", "m3", vRadier, { area_m2: area, espessura_m: radierEsp }, "V = C x L x H", [`${formatNumber(area)} m2 x ${formatNumber(radierEsp)} m = ${formatNumber(vRadier)} m3`]));
+        formulas.push(engenhariaBmu("BMU-000501", "Volume de concreto com perda", "m3", concretoFinal, { volume_m3: concretoBruto, perda_percentual: perda }, "Vfinal = V x (1 + perda)", [`${formatNumber(concretoBruto)} x ${(1 + perda / 100).toFixed(3)} = ${formatNumber(concretoFinal)} m3`]));
+        const acoBaldrameLong = usarBaldrame ? engenhariaPesoBarra(10, perimetro, 4) : 0;
+        const qtdEstribosBaldrame = usarBaldrame ? engenhariaQtdPorEspacamento(perimetro, 0.2) : 0;
+        const acoEstribosBaldrame = usarBaldrame ? engenhariaPesoBarra(5, 2 * (balB + balH) + 0.1, qtdEstribosBaldrame) : 0;
+        const sapBarrasC = usarSapatas ? engenhariaQtdPorEspacamento(sapL, 0.15) : 0;
+        const sapBarrasL = usarSapatas ? engenhariaQtdPorEspacamento(sapC, 0.15) : 0;
+        const acoSapatas = usarSapatas ? engenhariaPesoBarra(10, sapC, sapBarrasC * qtdSapatas) + engenhariaPesoBarra(10, sapL, sapBarrasL * qtdSapatas) : 0;
+        const acoBrocas = qtdBrocas ? engenhariaPesoBarra(10, brocaProf, qtdBrocas * 4) + engenhariaPesoBarra(5, Math.PI * Math.max(0.1, brocaD - 0.05), qtdBrocas * engenhariaQtdPorEspacamento(brocaProf, 0.2)) : 0;
+        const acoRadier = usarRadier ? area * telaKgM2 : 0;
+        const acoTotal = acoBaldrameLong + acoEstribosBaldrame + acoSapatas + acoBrocas + acoRadier;
+        formulas.push(engenhariaBmu("BMU-000302", "Peso linear de barra", "kg", acoTotal, { diametros_mm: "5, 10 e tela", comprimento_estimado_m: perimetro }, "kg/m = d2 / 162", [`Aco estimado total = ${formatNumber(acoTotal)} kg.`]));
+        const formaTotal = formaBaldrame + formaSapatas + formaBrocas + formaRadier;
+        const confianca = Math.max(35, Math.min(88, 45 + (solo === "spt" ? 25 : solo === "firme" ? 15 : 5) + (area && perimetro ? 10 : 0) + (qtdSapatas || usarRadier ? 8 : 0)));
+        const quantitativos = [
+          { item: "Concreto baldrame", unidade: "m3", qtd: vBaldrame },
+          { item: "Concreto sapatas/blocos", unidade: "m3", qtd: vSapatas },
+          { item: "Concreto brocas", unidade: "m3", qtd: vBrocas },
+          { item: "Concreto radier", unidade: "m3", qtd: vRadier },
+          { item: "Concreto com perda", unidade: "m3", qtd: concretoFinal },
+          { item: "Forma estimada", unidade: "m2", qtd: formaTotal },
+          { item: "Aco CA-50/CA-60 estimado", unidade: "kg", qtd: acoTotal }
+        ].filter(item => item.qtd > 0);
+        const materiais = [
+          { item: "Concreto usinado/virado", unidade: "m3", qtd: concretoFinal, obs: `Inclui ${formatNumber(perda)}% de perda.` },
+          { item: "Barra longitudinal CA-50 10 mm", unidade: "kg", qtd: acoBaldrameLong + acoSapatas + acoBrocas, obs: "Baldrame, sapatas e brocas." },
+          { item: "Estribo CA-60 5 mm", unidade: "kg", qtd: acoEstribosBaldrame, obs: "Espacamento preliminar c/20 cm." },
+          { item: "Tela soldada para radier", unidade: "kg", qtd: acoRadier, obs: `${formatNumber(telaKgM2)} kg/m2.` },
+          { item: "Forma/compensado/madeira", unidade: "m2", qtd: formaTotal, obs: "Area estimada de contato." }
+        ].filter(item => item.qtd > 0);
+        const formulasAtivas = formulas.filter(f => f.valor > 0 || f.codigo === "BMU-000501");
+        memoria.push(...formulasAtivas.flatMap(f => f.memoria.map(line => `${f.codigo} - ${f.nome}: ${line}`)));
+        return {
+          id: crypto.randomUUID(),
+          obraId: obra.id || "",
+          calculadoEm: new Date().toLocaleString("pt-BR"),
+          faseProjeto: byId("engenhariaFase").value,
+          nivelConfianca: confianca,
+          necessitaValidacao: true,
+          tipoFundacao,
+          entradas: { comprimento, largura, area, perimetro, pavimentos, peDireito, solo, spt, tensaoSolo, qtdSapatas, qtdBrocas },
+          quantitativos,
+          materiais,
+          formulasUtilizadas: formulasAtivas.map(f => f.codigo),
+          hipoteses,
+          avisos,
+          memoriaCalculo: memoria,
+          metadados: { motor: "ecorp-engineering-core-web", versaoMotor: "0.1.0", versaoBMU: "BMU-1.0.0" }
+        };
+      }
+
+      function renderEngenhariaResultado(resultado) {
+        if (!resultado) {
+          byId("engenhariaConcretoTotal").textContent = "0 m3";
+          byId("engenhariaAcoTotal").textContent = "0 kg";
+          byId("engenhariaConfianca").textContent = "0%";
+          byId("engenhariaQuantitativos").innerHTML = `<div class="empty">Preencha os dados e clique em calcular.</div>`;
+          byId("engenhariaMateriais").innerHTML = `<div class="empty">A lista aparece apos o calculo.</div>`;
+          byId("engenhariaMemoria").innerHTML = `<div class="empty">O sistema registrara as formulas BMU e as hipoteses usadas.</div>`;
+          return;
+        }
+        const concreto = resultado.quantitativos.find(item => item.item === "Concreto com perda")?.qtd || 0;
+        const aco = resultado.quantitativos.find(item => item.item.includes("Aco"))?.qtd || 0;
+        byId("engenhariaConcretoTotal").textContent = `${formatNumber(concreto)} m3`;
+        byId("engenhariaAcoTotal").textContent = `${formatNumber(aco)} kg`;
+        byId("engenhariaConfianca").textContent = `${resultado.nivelConfianca}%`;
+        byId("engenhariaQuantitativos").innerHTML = `<table><thead><tr><th>Item</th><th>Qtd.</th><th>Un.</th></tr></thead><tbody>${resultado.quantitativos.map(item => `<tr><td>${escapeHtml(item.item)}</td><td>${formatNumber(item.qtd)}</td><td>${escapeHtml(item.unidade)}</td></tr>`).join("")}</tbody></table>`;
+        byId("engenhariaMateriais").innerHTML = `<table><thead><tr><th>Material</th><th>Qtd.</th><th>Obs.</th></tr></thead><tbody>${resultado.materiais.map(item => `<tr><td>${escapeHtml(item.item)}</td><td>${formatNumber(item.qtd)} ${escapeHtml(item.unidade)}</td><td>${escapeHtml(item.obs)}</td></tr>`).join("")}</tbody></table>`;
+        byId("engenhariaMemoria").innerHTML = `
+          <p><strong>Fase:</strong> ${escapeHtml(resultado.faseProjeto)} | <strong>Calculado em:</strong> ${escapeHtml(resultado.calculadoEm)} | <strong>Validacao tecnica:</strong> ${resultado.necessitaValidacao ? "necessaria" : "nao exigida"}</p>
+          <h4>Hipoteses</h4><ul>${resultado.hipoteses.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+          <h4>Avisos</h4><ul>${resultado.avisos.map(item => `<li>${escapeHtml(item)}</li>`).join("") || "<li>Sem avisos adicionais.</li>"}</ul>
+          <h4>Memoria de calculo</h4><ul>${resultado.memoriaCalculo.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+          <p class="muted">BMU: ${escapeHtml(resultado.metadados.versaoBMU)} | Motor: ${escapeHtml(resultado.metadados.motor)} ${escapeHtml(resultado.metadados.versaoMotor)}</p>
+        `;
+      }
+
       function rebuildEngineeringPlanPreserving(obra, currentPlan = []) {
         const currentByCode = new Map((currentPlan || []).map(item => [item.code, item]));
         return buildEngineeringPlan(obra).map(item => {
@@ -1528,9 +1766,24 @@
         return db.obras.find(o => o.id === clienteObraLogadaId) || null;
       }
 
+      function renderEngenharia() {
+        const allowed = canAccessRestrictedView("engenharia");
+        byId("engenhariaBloqueado").classList.toggle("hidden", allowed);
+        byId("engenhariaPanel").classList.toggle("hidden", !allowed);
+        byId("engenhariaPermissao").textContent = allowed ? "Acesso liberado" : "Acesso restrito";
+        if (!allowed) return;
+        const current = byId("engenhariaObraSelect")?.value || "";
+        byId("engenhariaObraSelect").innerHTML = db.obras.map(o => `<option value="${o.id}">${escapeHtml(o.nome)} - ${escapeHtml(o.status)}</option>`).join("");
+        if (current && db.obras.some(o => o.id === current)) byId("engenhariaObraSelect").value = current;
+        if (!byId("engenhariaObraSelect").value && db.obras[0]) byId("engenhariaObraSelect").value = db.obras[0].id;
+        const controle = getControle(byId("engenhariaObraSelect").value);
+        engenhariaResultadoAtual = controle.engenhariaCore || null;
+        renderEngenhariaResultado(engenhariaResultadoAtual);
+      }
+
       function showView(view, options = {}) {
-        const adminSubViews = ["operacao", "controleObra", "orcamentos"];
-        const restrictedViews = ["operacao", "controleObra", "orcamentos", "materiais"];
+        const adminSubViews = ["operacao", "controleObra", "engenharia", "orcamentos"];
+        const restrictedViews = ["operacao", "controleObra", "engenharia", "orcamentos", "materiais"];
         if (tutorialState.active && !options.keepTutorial) closeTutorial();
         if (restrictedViews.includes(view) && !canAccessRestrictedView(view)) {
           alert("Acesso nao liberado para este usuario. Entre com um funcionario autorizado ou com o ADM.");
@@ -1547,6 +1800,7 @@
         }
         document.querySelectorAll(".view").forEach(v => v.classList.toggle("active", v.id === view));
         if (view === "controleObra") renderControleObra();
+        if (view === "engenharia") renderEngenharia();
         if (view === "cliente") renderClienteArea();
         if (!options.skipHash) location.hash = view;
       }
@@ -1572,10 +1826,13 @@
 
       function renderSelects() {
         const controleAtual = byId("controleObraSelect")?.value || "";
+        const engenhariaAtual = byId("engenhariaObraSelect")?.value || "";
         const obraOptions = db.obras.map(o => `<option value="${o.id}">${o.nome} - ${o.status}</option>`).join("");
         byId("pontoObra").innerHTML = obraOptions;
         byId("controleObraSelect").innerHTML = obraOptions;
+        byId("engenhariaObraSelect").innerHTML = obraOptions;
         if (controleAtual && db.obras.some(o => o.id === controleAtual)) byId("controleObraSelect").value = controleAtual;
+        if (engenhariaAtual && db.obras.some(o => o.id === engenhariaAtual)) byId("engenhariaObraSelect").value = engenhariaAtual;
         const colaborador = getColaboradorLogado();
         byId("pontoColaboradorNome").value = colaborador ? `${colaborador.nome} - CPF ${colaborador.cpf}` : "";
       }
@@ -1846,6 +2103,7 @@
         renderColabs();
         renderObras();
         renderControleObra();
+        renderEngenharia();
         renderClienteArea();
         renderAdminAccess();
         renderColaboradorAccess();
@@ -1994,7 +2252,7 @@
         adminAutenticado = false;
         localStorage.removeItem(adminSessionKey);
         renderAdminAccess();
-        if (["#operacao", "#controleObra", "#orcamentos"].includes(location.hash)) {
+        if (["#operacao", "#controleObra", "#engenharia", "#orcamentos"].includes(location.hash)) {
           showView("admin");
         }
       });
@@ -2080,6 +2338,34 @@
       });
 
       byId("controleObraSelect").addEventListener("change", renderControleObra);
+      byId("engenhariaObraSelect").addEventListener("change", () => {
+        const controle = getControle(byId("engenhariaObraSelect").value);
+        engenhariaResultadoAtual = controle.engenhariaCore || null;
+        renderEngenhariaResultado(engenhariaResultadoAtual);
+      });
+      byId("engenhariaCarregarObra").addEventListener("click", () => {
+        loadEngenhariaFromObra();
+      });
+      byId("engenhariaForm").addEventListener("submit", e => {
+        e.preventDefault();
+        engenhariaResultadoAtual = calcularEngenhariaCore();
+        renderEngenhariaResultado(engenhariaResultadoAtual);
+      });
+      byId("engenhariaSalvarResultado").addEventListener("click", () => {
+        if (!engenhariaResultadoAtual) engenhariaResultadoAtual = calcularEngenhariaCore();
+        const obraId = byId("engenhariaObraSelect").value;
+        if (!obraId) {
+          alert("Cadastre ou selecione uma obra antes de salvar.");
+          return;
+        }
+        const controle = getControle(obraId);
+        controle.engenhariaCore = { ...engenhariaResultadoAtual, obraId };
+        controle.atualizadoEm = new Date().toLocaleString("pt-BR");
+        save();
+        alert("Resultado de engenharia salvo na obra.");
+        renderAll();
+        showView("engenharia");
+      });
       byId("controleAlocados").addEventListener("change", e => {
         if (!e.target.matches("[data-alocado]")) return;
         salvarControleAlocados(selectedObraControleId());
