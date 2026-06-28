@@ -566,6 +566,16 @@
             <button id="engenhariaCarregarObra" type="button">Carregar dados da obra</button>
             <button id="engenhariaSalvarResultado" type="button">Salvar resultado na obra</button>
           </form>
+          <div class="card">
+            <div class="toolbar">
+              <div>
+                <h3>Banco tecnico de referencia</h3>
+                <p class="muted">PDFs cadastrados como base tecnica para orientar hipoteses, motores e validacao.</p>
+              </div>
+              <span class="pill">Base inicial</span>
+            </div>
+            <div id="engenhariaBancoTecnico"></div>
+          </div>
           <div class="grid cols-3">
             <div class="card stat"><span class="muted">Concreto final</span><strong id="engenhariaConcretoTotal">0 m3</strong></div>
             <div class="card stat"><span class="muted">Ferragem total</span><strong id="engenhariaAcoTotal">0 kg</strong></div>
@@ -649,6 +659,19 @@
         user: "bb3ad25ff3b4a181bdde0e6cd716966af6a8c04fbfd6f5ba6a7f80329657bbde",
         pass: "dbd1f883d60e3c41d5da339dc4402854f02794c6601a874ea56ad4c7e3b7095f"
       };
+      const ENGINEERING_TECHNICAL_REFERENCES = [
+        { id: "FON-SOLO-001", modulo: "Solos", arquivo: "670841644-Curso-Basico-de-Mecanica-dos-Solos.pdf", uso: "Classificacao preliminar de solo, risco geotecnico e necessidade de sondagem.", status: "Referencia cadastrada" },
+        { id: "FON-FUN-001", modulo: "Fundacoes", arquivo: "895513382-Fundacoes-Rasas-1ª-Parte.pdf", uso: "Escolha preliminar entre sapata, radier e baldrame.", status: "Referencia cadastrada" },
+        { id: "FON-FUN-002", modulo: "Fundacoes", arquivo: "671048985-Ebook-da-Unidade-Dimensionamento-de-Fundacoes.pdf", uso: "Criterios de fundacoes rasas e leitura de capacidade do solo.", status: "Referencia cadastrada" },
+        { id: "FON-FUN-003", modulo: "Estacas", arquivo: "1006537224-Manual-de-Dimensionamento-Estrutural-de-Estacas-1.pdf", uso: "Referencia para fundacoes profundas e estacas quando solo ou cargas exigirem.", status: "Referencia cadastrada" },
+        { id: "FON-CAR-001", modulo: "Cargas", arquivo: "2018.08-NBR-6120.pdf", uso: "Acoes e cargas para edificacoes, usadas como referencia de entrada para motores futuros.", status: "Referencia cadastrada" },
+        { id: "FON-CONC-001", modulo: "Concreto armado", arquivo: "NBR6118.pdf", uso: "Referencia normativa para concreto armado, armaduras, estados limites e validacao.", status: "Referencia cadastrada" },
+        { id: "FON-CONC-002", modulo: "Concreto armado", arquivo: "764997559-Curso-de-Concreto-Armado-Jose-Milton-de-Araujo-Volume-2.pdf", uso: "Apoio didatico para dimensionamento e verificacoes de concreto armado.", status: "Referencia cadastrada" },
+        { id: "FON-CONC-003", modulo: "Puncao", arquivo: "379909932-Aula-Puncao-Metodo-Cross.pdf", uso: "Referencia para verificacao futura de puncao em lajes e radiers.", status: "Referencia cadastrada" },
+        { id: "FON-MET-001", modulo: "Estrutura metalica", arquivo: "758441348-Aula-9-Diagonal-Da-Trelica-Do-Galpao-Dimensionamento-Pela-NBR8800.pdf", uso: "Referencia para galpoes, diagonais de trelica e NBR 8800.", status: "Referencia cadastrada" },
+        { id: "FON-TRE-001", modulo: "Trelicas", arquivo: "818159305-dimensionamento-trelica.pdf", uso: "Referencia para pre-dimensionamento de trelicas e cobertura.", status: "Referencia cadastrada" },
+        { id: "FON-CONC-004", modulo: "Concepcao estrutural", arquivo: "712455640-informacoes-livro-concepcao-sv.pdf", uso: "Apoio para concepcao estrutural e escolha de solucao.", status: "Referencia cadastrada" }
+      ];
       const ECB_PRODUCTIVITY_MASTER = [
         { code: "ECB-010101", discipline: "Servicos Preliminares", name: "Mobilizacao inicial da obra", unit: "dia", qty: 1, crew: "1 pedreiro + 1 servente", productivity: 1, source: "Premissa E-Corp" },
         { code: "ECB-010201", discipline: "Servicos Preliminares", name: "Conferencia de projeto e marcacao de eixos", unit: "m2", qty: 150, crew: "1 pedreiro + 1 servente", productivity: 75, source: "Premissa E-Corp" },
@@ -1363,6 +1386,44 @@
         return Math.floor(comprimentoM / espacamentoM) + 1;
       }
 
+      function tensaoSoloPorEntrada(solo, spt, informado) {
+        if (informado > 0) return informado;
+        if (solo === "aterro") return 100;
+        if (solo === "spt") {
+          if (spt >= 15) return 250;
+          if (spt >= 10) return 180;
+          if (spt >= 5) return 120;
+          return 80;
+        }
+        if (solo === "firme") return 200;
+        return 150;
+      }
+
+      function engineeringReferencesFor(tipoFundacao, solo) {
+        const modules = new Set(["Solos", "Fundacoes", "Concreto armado", "Cargas"]);
+        if (tipoFundacao === "broca_baldrame") modules.add("Estacas");
+        if (tipoFundacao === "radier") modules.add("Puncao");
+        if (solo === "aterro") modules.add("Estacas");
+        return ENGINEERING_TECHNICAL_REFERENCES.filter(ref => modules.has(ref.modulo));
+      }
+
+      function renderEngineeringTechnicalReferences() {
+        const grouped = ENGINEERING_TECHNICAL_REFERENCES.reduce((acc, ref) => {
+          acc[ref.modulo] = acc[ref.modulo] || [];
+          acc[ref.modulo].push(ref);
+          return acc;
+        }, {});
+        byId("engenhariaBancoTecnico").innerHTML = Object.entries(grouped).map(([modulo, refs]) => `
+          <div class="admin-row">
+            <div>
+              <strong>${escapeHtml(modulo)}</strong>
+              <p class="muted">${refs.map(ref => `${ref.id}: ${ref.arquivo}`).map(escapeHtml).join("<br>")}</p>
+            </div>
+            <div class="muted">${refs.map(ref => escapeHtml(ref.uso)).join("<br>")}</div>
+          </div>
+        `).join("");
+      }
+
       function loadEngenhariaFromObra() {
         const obra = db.obras.find(o => o.id === byId("engenhariaObraSelect").value) || db.obras[0];
         if (!obra) return;
@@ -1399,18 +1460,21 @@
         const telaKgM2 = engenhariaNumber("engenhariaTelaKg", 3.11);
         const solo = byId("engenhariaSolo").value;
         const spt = engenhariaNumber("engenhariaSpt");
-        const tensaoSolo = engenhariaNumber("engenhariaTensaoSolo", solo === "spt" || spt >= 15 ? 250 : solo === "aterro" ? 100 : 200);
+        const tensaoSolo = tensaoSoloPorEntrada(solo, spt, engenhariaNumber("engenhariaTensaoSolo"));
+        const fontesTecnicas = engineeringReferencesFor(tipoFundacao, solo);
         const memoria = [];
         const formulas = [];
         const hipoteses = [
           `Fase: ${byId("engenhariaFase").value}.`,
           `Fundacao analisada: ${byId("engenhariaFundacao").selectedOptions[0]?.textContent || tipoFundacao}.`,
-          `Area considerada: ${formatNumber(area)} m2; perimetro considerado: ${formatNumber(perimetro)} m.`
+          `Area considerada: ${formatNumber(area)} m2; perimetro considerado: ${formatNumber(perimetro)} m.`,
+          `Tensao admissivel preliminar adotada: ${formatNumber(tensaoSolo)} kPa.`
         ];
         const avisos = [];
         if (!area || !perimetro) avisos.push("Informe area e perimetro para melhorar o calculo.");
         if (solo !== "spt") avisos.push("Resultado preliminar sem sondagem SPT. Necessita validacao de engenheiro responsavel.");
         if (solo === "aterro") avisos.push("Aterro ou solo duvidoso aumenta risco. Evite liberar projeto executivo sem investigacao geotecnica.");
+        avisos.push("Os PDFs foram cadastrados como referencia tecnica; as tabelas e formulas normativas ainda precisam de extracao/revisao antes de uso executivo.");
         const usarBaldrame = ["baldrame", "broca_baldrame"].includes(tipoFundacao);
         const usarSapatas = ["baldrame", "sapata", "broca_baldrame"].includes(tipoFundacao);
         const usarRadier = tipoFundacao === "radier";
@@ -1471,6 +1535,7 @@
           quantitativos,
           materiais,
           formulasUtilizadas: formulasAtivas.map(f => f.codigo),
+          fontesTecnicas,
           hipoteses,
           avisos,
           memoriaCalculo: memoria,
@@ -1500,6 +1565,7 @@
           <h4>Hipoteses</h4><ul>${resultado.hipoteses.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
           <h4>Avisos</h4><ul>${resultado.avisos.map(item => `<li>${escapeHtml(item)}</li>`).join("") || "<li>Sem avisos adicionais.</li>"}</ul>
           <h4>Memoria de calculo</h4><ul>${resultado.memoriaCalculo.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+          <h4>Fontes tecnicas vinculadas</h4><ul>${(resultado.fontesTecnicas || []).map(ref => `<li>${escapeHtml(ref.id)} - ${escapeHtml(ref.modulo)}: ${escapeHtml(ref.arquivo)}</li>`).join("") || "<li>Nenhuma fonte vinculada.</li>"}</ul>
           <p class="muted">BMU: ${escapeHtml(resultado.metadados.versaoBMU)} | Motor: ${escapeHtml(resultado.metadados.motor)} ${escapeHtml(resultado.metadados.versaoMotor)}</p>
         `;
       }
@@ -1778,6 +1844,7 @@
         if (!byId("engenhariaObraSelect").value && db.obras[0]) byId("engenhariaObraSelect").value = db.obras[0].id;
         const controle = getControle(byId("engenhariaObraSelect").value);
         engenhariaResultadoAtual = controle.engenhariaCore || null;
+        renderEngineeringTechnicalReferences();
         renderEngenhariaResultado(engenhariaResultadoAtual);
       }
 
