@@ -649,6 +649,7 @@
       const colaboradorSessionKey = "ecorp-colaborador-auth-preview";
       const clienteSessionKey = "ecorp-cliente-auth-preview";
       const apiDisponivel = location.protocol === "http:" || location.protocol === "https:";
+      const apiOperacionalEndpoints = ["/api/operacional", "/api/operacional.php"];
       const senhaPadraoColaborador = "123456";
       const defaultBdiPercent = 20;
       const permissionConfig = [
@@ -966,6 +967,20 @@
         return [...onlinePontos, ...localPending.filter(p => !ids.has(p.id))];
       }
 
+      async function fetchApiOperacional(options = {}) {
+        let lastError = null;
+        for (const endpoint of apiOperacionalEndpoints) {
+          try {
+            const response = await fetch(endpoint, options);
+            if (response.ok || response.status !== 404) return response;
+            lastError = new Error(`Endpoint nao encontrado: ${endpoint}`);
+          } catch (error) {
+            lastError = error;
+          }
+        }
+        throw lastError || new Error("API operacional indisponivel.");
+      }
+
       async function syncOnlineDb() {
         if (!apiDisponivel || syncInProgress || !navigator.onLine) return false;
         syncInProgress = true;
@@ -977,7 +992,7 @@
             syncStatus: "synced",
             syncedAt
           } : p);
-          const response = await fetch("/api/operacional", {
+          const response = await fetchApiOperacional({
             method: "PUT",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload)
@@ -1000,7 +1015,7 @@
         if (!apiDisponivel) return;
         try {
           const localDb = JSON.parse(localStorage.getItem(storeKey) || "null") || {};
-          const response = await fetch("/api/operacional");
+          const response = await fetchApiOperacional();
           if (!response.ok) return;
           const onlineDb = await response.json();
           if (onlineDb && typeof onlineDb === "object" && Object.keys(onlineDb).length) {

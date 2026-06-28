@@ -1,0 +1,10 @@
+DirectoryIndex integracao-preview.html index.html
+
+RewriteEngine On
+
+RewriteRule ^api/operacional/?$ api/operacional.php [L,QSA]
+RewriteRule ^api/health/?$ api/health.php [L,QSA]
+
+<IfModule mod_headers.c>
+  Header set X-Content-Type-Options "nosniff"
+</IfModule>
