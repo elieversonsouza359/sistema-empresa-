@@ -1,4 +1,4 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="pt-BR">
   <head>
     <meta charset="utf-8" />
@@ -543,7 +543,7 @@
           <form class="card grid cols-3" id="engenhariaForm">
             <h3 style="grid-column:1 / -1">Dados para calculo estrutural preliminar</h3>
             <label>Obra<select id="engenhariaObraSelect"></select></label>
-            <label>Tipo de fundacao<select id="engenhariaFundacao"><option value="baldrame">Sapata + baldrame</option><option value="radier">Radier</option><option value="broca_baldrame">Broca + bloco + baldrame</option><option value="sapata">Sapatas isoladas</option></select></label>
+            <label>Tipo de fundacao<select id="engenhariaFundacao"><option value="baldrame">Sapata + baldrame</option><option value="radier">Radier</option><option value="broca_baldrame">Broca + sapata + baldrame</option><option value="sapata">Sapatas isoladas</option></select></label>
             <label>Fase<select id="engenhariaFase"><option value="pre_dimensionamento">Pre-dimensionamento</option><option value="estudo_viabilidade">Estudo de viabilidade</option><option value="projeto_orcamento">Projeto para orcamento</option></select></label>
             <label>Comprimento da obra (m)<input id="engenhariaComprimento" min="0" step="0.01" type="number" /></label>
             <label>Largura da obra (m)<input id="engenhariaLargura" min="0" step="0.01" type="number" /></label>
@@ -663,7 +663,7 @@
       };
       const ENGINEERING_TECHNICAL_REFERENCES = [
         { id: "FON-SOLO-001", modulo: "Solos", arquivo: "670841644-Curso-Basico-de-Mecanica-dos-Solos.pdf", uso: "Classificacao preliminar de solo, risco geotecnico e necessidade de sondagem.", status: "Referencia cadastrada" },
-        { id: "FON-FUN-001", modulo: "Fundacoes", arquivo: "895513382-Fundacoes-Rasas-1ª-Parte.pdf", uso: "Escolha preliminar entre sapata, radier e baldrame.", status: "Referencia cadastrada" },
+        { id: "FON-FUN-001", modulo: "Fundacoes", arquivo: "895513382-Fundacoes-Rasas-1Âª-Parte.pdf", uso: "Escolha preliminar entre sapata, radier e baldrame.", status: "Referencia cadastrada" },
         { id: "FON-FUN-002", modulo: "Fundacoes", arquivo: "671048985-Ebook-da-Unidade-Dimensionamento-de-Fundacoes.pdf", uso: "Criterios de fundacoes rasas e leitura de capacidade do solo.", status: "Referencia cadastrada" },
         { id: "FON-FUN-003", modulo: "Estacas", arquivo: "1006537224-Manual-de-Dimensionamento-Estrutural-de-Estacas-1.pdf", uso: "Referencia para fundacoes profundas e estacas quando solo ou cargas exigirem.", status: "Referencia cadastrada" },
         { id: "FON-CAR-001", modulo: "Cargas", arquivo: "2018.08-NBR-6120.pdf", uso: "Acoes e cargas para edificacoes, usadas como referencia de entrada para motores futuros.", status: "Referencia cadastrada" },
@@ -1176,7 +1176,7 @@
       }
 
       function normalizeUnit(value) {
-        return normalizeText(value).replace("m²", "m2").replace("m³", "m3").replace(" ", "");
+        return normalizeText(value).replace("mÂ²", "m2").replace("mÂ³", "m3").replace(" ", "");
       }
 
       function compatibleUnit(a, b) {
@@ -1184,7 +1184,7 @@
         const right = normalizeUnit(b);
         if (!left || !right) return false;
         if (left === right) return true;
-        return (left === "un" && right === "unidade") || (left === "m2" && right === "m²") || (left === "m3" && right === "m³");
+        return (left === "un" && right === "unidade") || (left === "m2" && right === "mÂ²") || (left === "m3" && right === "mÂ³");
       }
 
       function referenceTermsForActivity(item) {
@@ -1556,6 +1556,8 @@
         const usarBaldrame = ["baldrame", "broca_baldrame"].includes(tipoFundacao);
         const usarSapatas = ["baldrame", "sapata", "broca_baldrame"].includes(tipoFundacao);
         const usarRadier = tipoFundacao === "radier";
+        const usarPilaresConcreto = tipoFundacao !== "radier" && Boolean(perfil.pilar);
+        const usarCintas = tipoFundacao !== "radier" && Boolean(perfil.cintaSuperior);
         const vBaldrame = usarBaldrame ? perimetro * balB * balH : 0;
         const formaBaldrame = usarBaldrame ? (2 * balH + balB) * perimetro : 0;
         const vSapatas = usarSapatas ? qtdSapatas * sapC * sapL * sapH : 0;
@@ -1582,24 +1584,24 @@
         let acoTotal = acoBaldrameLong + acoEstribosBaldrame + acoSapatas + acoBrocas + acoRadier;
         formulas.push(engenhariaBmu("BMU-000302", "Peso linear de barra", "kg", acoTotal, { diametros_mm: "5, 10 e tela", comprimento_estimado_m: perimetro }, "kg/m = d2 / 162", [`Aco estimado total = ${formatNumber(acoTotal)} kg.`]));
         const formaTotal = formaBaldrame + formaSapatas + formaBrocas + formaRadier;
-        const qtdPilares = perfil.pilar ? Math.max(qtdSapatas, qtdBrocas, perfil.minApoios) : 0;
+        const qtdPilares = usarPilaresConcreto ? Math.max(qtdSapatas, qtdBrocas, perfil.minApoios) : 0;
         const alturaPilar = peDireito * Math.max(1, pavimentos);
-        const pilarConcreto = perfil.pilar ? qtdPilares * perfil.pilar.b * perfil.pilar.h * alturaPilar : 0;
-        const pilarAco = perfil.pilar ? qtdPilares * engenhariaPesoBarra(perfil.pilar.diam, alturaPilar, perfil.pilar.barras) : 0;
-        const cintaIntConcreto = perfil.cintaIntermediaria && perimetro ? perimetro * perfil.cintaIntermediaria.b * perfil.cintaIntermediaria.h : 0;
-        const cintaIntAco = perfil.cintaIntermediaria && perimetro ? engenhariaPesoBarra(perfil.cintaIntermediaria.diam, perimetro, perfil.cintaIntermediaria.barras) : 0;
-        const cintaSupConcreto = perfil.cintaSuperior && perimetro ? perimetro * perfil.cintaSuperior.b * perfil.cintaSuperior.h : 0;
-        const cintaSupAco = perfil.cintaSuperior && perimetro ? engenhariaPesoBarra(perfil.cintaSuperior.diam, perimetro, perfil.cintaSuperior.barras) : 0;
+        const pilarConcreto = usarPilaresConcreto ? qtdPilares * perfil.pilar.b * perfil.pilar.h * alturaPilar : 0;
+        const pilarAco = usarPilaresConcreto ? qtdPilares * engenhariaPesoBarra(perfil.pilar.diam, alturaPilar, perfil.pilar.barras) : 0;
+        const cintaIntConcreto = usarCintas && perfil.cintaIntermediaria && perimetro ? perimetro * perfil.cintaIntermediaria.b * perfil.cintaIntermediaria.h : 0;
+        const cintaIntAco = usarCintas && perfil.cintaIntermediaria && perimetro ? engenhariaPesoBarra(perfil.cintaIntermediaria.diam, perimetro, perfil.cintaIntermediaria.barras) : 0;
+        const cintaSupConcreto = usarCintas && perfil.cintaSuperior && perimetro ? perimetro * perfil.cintaSuperior.b * perfil.cintaSuperior.h : 0;
+        const cintaSupAco = usarCintas && perfil.cintaSuperior && perimetro ? engenhariaPesoBarra(perfil.cintaSuperior.diam, perimetro, perfil.cintaSuperior.barras) : 0;
         acoTotal += pilarAco + cintaIntAco + cintaSupAco;
         const concretoFinalGeral = concretoFinal + ((pilarConcreto + cintaIntConcreto + cintaSupConcreto) * (1 + perda / 100));
         const detalhesArmadura = [
           usarSapatas ? { elemento: "Sapata isolada", secao: `${formatNumber(sapC * 100)} x ${formatNumber(sapL * 100)} x ${formatNumber(sapH * 100)} cm`, armadura: "Malha inferior e superior com barras diam. 10 mm c/15 cm nas duas direcoes.", estribos: "Sem estribos; prever arranque do pilar conforme projeto.", quantidade: `${qtdSapatas} un`, concretoM3: vSapatas, acoKg: acoSapatas } : null,
           qtdBrocas ? { elemento: "Broca", secao: `Diam. ${formatNumber(brocaD * 100)} cm x ${formatNumber(brocaProf)} m`, armadura: "4 barras longitudinais diam. 10 mm.", estribos: "Estribos diam. 5 mm c/20 cm.", quantidade: `${qtdBrocas} un`, concretoM3: vBrocas, acoKg: acoBrocas } : null,
           usarBaldrame ? { elemento: "Baldrame", secao: `${formatNumber(balB * 100)} x ${formatNumber(balH * 100)} cm`, armadura: `2 barras superiores diam. ${perfil.cintaSuperior?.diam || 10} mm + 2 barras inferiores diam. ${perfil.cintaSuperior?.diam || 10} mm.`, estribos: "Estribos diam. 5 mm c/20 cm.", quantidade: `${formatNumber(perimetro)} m`, concretoM3: vBaldrame, acoKg: acoBaldrameLong + acoEstribosBaldrame } : null,
-          usarRadier ? { elemento: "Radier", secao: `${formatNumber(area)} m2 x ${formatNumber(radierEsp * 100)} cm`, armadura: `Tela soldada estimada com ${formatNumber(telaKgM2)} kg/m2.`, estribos: "Verificar punção e reforços localizados nos apoios.", quantidade: `${formatNumber(area)} m2`, concretoM3: vRadier, acoKg: acoRadier } : null,
-          perfil.pilar ? { elemento: perfil.pilar.nome, secao: `${formatNumber(perfil.pilar.b * 100)} x ${formatNumber(perfil.pilar.h * 100)} cm`, armadura: `${perfil.pilar.barras} barras verticais diam. ${perfil.pilar.diam} mm.`, estribos: `Estribos diam. ${perfil.pilar.estribo} mm c/${formatNumber(perfil.pilar.espacamento * 100)} cm.`, quantidade: `${qtdPilares} un`, concretoM3: pilarConcreto, acoKg: pilarAco } : null,
-          perfil.cintaIntermediaria && perimetro ? { elemento: "Cinta intermediaria", secao: `${formatNumber(perfil.cintaIntermediaria.b * 100)} x ${formatNumber(perfil.cintaIntermediaria.h * 100)} cm`, armadura: `${perfil.cintaIntermediaria.barras} barras diam. ${perfil.cintaIntermediaria.diam} mm continuas.`, estribos: `Estribos diam. ${perfil.cintaIntermediaria.estribo} mm c/${formatNumber(perfil.cintaIntermediaria.espacamento * 100)} cm.`, quantidade: `${formatNumber(perimetro)} m`, concretoM3: cintaIntConcreto, acoKg: cintaIntAco } : null,
-          perfil.cintaSuperior && perimetro ? { elemento: "Cinta superior", secao: `${formatNumber(perfil.cintaSuperior.b * 100)} x ${formatNumber(perfil.cintaSuperior.h * 100)} cm`, armadura: `${perfil.cintaSuperior.barras} barras diam. ${perfil.cintaSuperior.diam} mm continuas.`, estribos: `Estribos diam. ${perfil.cintaSuperior.estribo} mm c/${formatNumber(perfil.cintaSuperior.espacamento * 100)} cm.`, quantidade: `${formatNumber(perimetro)} m`, concretoM3: cintaSupConcreto, acoKg: cintaSupAco } : null
+          usarRadier ? { elemento: "Radier", secao: `${formatNumber(area)} m2 x ${formatNumber(radierEsp * 100)} cm`, armadura: `Tela soldada estimada com ${formatNumber(telaKgM2)} kg/m2.`, estribos: "Verificar punÃ§Ã£o e reforÃ§os localizados nos apoios.", quantidade: `${formatNumber(area)} m2`, concretoM3: vRadier, acoKg: acoRadier } : null,
+          usarPilaresConcreto ? { elemento: perfil.pilar.nome, secao: `${formatNumber(perfil.pilar.b * 100)} x ${formatNumber(perfil.pilar.h * 100)} cm`, armadura: `${perfil.pilar.barras} barras verticais diam. ${perfil.pilar.diam} mm.`, estribos: `Estribos diam. ${perfil.pilar.estribo} mm c/${formatNumber(perfil.pilar.espacamento * 100)} cm.`, quantidade: `${qtdPilares} un`, concretoM3: pilarConcreto, acoKg: pilarAco } : null,
+          usarCintas && perfil.cintaIntermediaria && perimetro ? { elemento: "Cinta intermediaria", secao: `${formatNumber(perfil.cintaIntermediaria.b * 100)} x ${formatNumber(perfil.cintaIntermediaria.h * 100)} cm`, armadura: `${perfil.cintaIntermediaria.barras} barras diam. ${perfil.cintaIntermediaria.diam} mm continuas.`, estribos: `Estribos diam. ${perfil.cintaIntermediaria.estribo} mm c/${formatNumber(perfil.cintaIntermediaria.espacamento * 100)} cm.`, quantidade: `${formatNumber(perimetro)} m`, concretoM3: cintaIntConcreto, acoKg: cintaIntAco } : null,
+          usarCintas && perfil.cintaSuperior && perimetro ? { elemento: "Cinta superior", secao: `${formatNumber(perfil.cintaSuperior.b * 100)} x ${formatNumber(perfil.cintaSuperior.h * 100)} cm`, armadura: `${perfil.cintaSuperior.barras} barras diam. ${perfil.cintaSuperior.diam} mm continuas.`, estribos: `Estribos diam. ${perfil.cintaSuperior.estribo} mm c/${formatNumber(perfil.cintaSuperior.espacamento * 100)} cm.`, quantidade: `${formatNumber(perimetro)} m`, concretoM3: cintaSupConcreto, acoKg: cintaSupAco } : null
         ].filter(Boolean);
         const confianca = Math.max(35, Math.min(88, 45 + (solo === "spt" ? 25 : solo === "firme" ? 15 : 5) + (area && perimetro ? 10 : 0) + (qtdSapatas || usarRadier ? 8 : 0)));
         const quantitativos = [
@@ -1878,7 +1880,7 @@
       }
 
       function exportEngenhariaDetalhesPdf() {
-        if (!engenhariaResultadoAtual) engenhariaResultadoAtual = calcularEngenhariaCore();
+        engenhariaResultadoAtual = calcularEngenhariaCore();
         const obra = db.obras.find(o => o.id === byId("engenhariaObraSelect").value) || {};
         const resultado = engenhariaResultadoAtual;
         const pages = [];
@@ -1934,7 +1936,7 @@
       }
 
       function exportEngenhariaPranchaIlustrada() {
-        if (!engenhariaResultadoAtual) engenhariaResultadoAtual = calcularEngenhariaCore();
+        engenhariaResultadoAtual = calcularEngenhariaCore();
         const obra = db.obras.find(o => o.id === byId("engenhariaObraSelect").value) || {};
         const resultado = engenhariaResultadoAtual;
         const detalhes = resultado.detalhesArmadura || [];
@@ -1957,7 +1959,7 @@
             <line x1="110" y1="195" x2="210" y2="195" stroke="#ef4444" stroke-width="3"/>
             <text x="20" y="112">A</text><text x="248" y="112">A</text>
             <text x="110" y="20">${esc(sapata.secao || "80 x 80 x 40 cm")}</text>
-            <text x="15" y="215" fill="#064e3b">Malha Ø10 c/15</text>
+            <text x="15" y="215" fill="#064e3b">Malha Ã˜10 c/15</text>
           </svg>`;
         const svgPilar = `
           <svg viewBox="0 0 360 230" class="draw">
@@ -1968,8 +1970,8 @@
             ${[[235,88],[275,88],[235,147],[275,147],[255,88],[255,147]].map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="4" fill="#dc2626"/>`).join("")}
             <rect x="232" y="84" width="46" height="67" fill="none" stroke="#047857"/>
             <text x="20" y="112" transform="rotate(-90 20 112)">Pe direito ${formatNumber(resultado.entradas.peDireito)} m</text>
-            <text x="160" y="50" fill="#dc2626">${esc(pilar.armadura || "6Ø12,5")}</text>
-            <text x="160" y="72" fill="#047857">${esc(pilar.estribos || "Ø5 c/15")}</text>
+            <text x="160" y="50" fill="#dc2626">${esc(pilar.armadura || "6Ã˜12,5")}</text>
+            <text x="160" y="72" fill="#047857">${esc(pilar.estribos || "Ã˜5 c/15")}</text>
           </svg>`;
         const beamSvg = (item, titulo, secao, barras, estribos) => `
           <svg viewBox="0 0 360 170" class="draw">
@@ -1985,6 +1987,13 @@
             <text x="185" y="145" fill="#047857">${esc(estribos)}</text>
           </svg>`;
         const rowsDetalhes = detalhes.map(item => `<tr><td>${esc(item.elemento)}</td><td>${esc(item.secao)}</td><td>${esc(item.quantidade)}</td><td>${formatNumber(item.concretoM3)}</td><td>${formatNumber(item.acoKg)}</td></tr>`).join("");
+        const detailSections = detalhes.map((item, index) => `
+              <div class="box">
+                <h2>${index + 1}. ${esc(item.elemento).toUpperCase()}</h2>
+                ${beamSvg(item, item.elemento, item.secao, item.armadura, item.estribos)}
+                <table><tr><th>Secao</th><th>Qtd.</th><th>Concreto</th><th>Aco</th></tr><tr><td>${esc(item.secao)}</td><td>${esc(item.quantidade)}</td><td>${formatNumber(item.concretoM3)} m3</td><td>${formatNumber(item.acoKg)} kg</td></tr></table>
+              </div>
+        `).join("");
         const html = `<!doctype html><html><head><meta charset="utf-8"><title>Prancha de armadura</title>
           <style>
             @page { size: A3 landscape; margin: 8mm; }
@@ -2009,11 +2018,7 @@
           <section class="sheet">
             <header><h1>${esc((obra.nome || "Obra").toUpperCase())} - ARMADURA</h1><div class="sub">Predimensionamento - Concreto Armado - Referencia NBR 6118 | ${esc(resultado.calculadoEm)}</div></header>
             <main class="grid">
-              <div class="box"><h2>1. SAPATA ISOLADA</h2>${svgSapata}<table><tr><th>Aco</th><th>Bitola</th><th>Qtd.</th><th>Comp.</th></tr><tr><td>Malha</td><td>10 mm</td><td>${esc(sapata.quantidade || "-")}</td><td>Ver corte</td></tr></table></div>
-              <div class="box"><h2>2. PILAR</h2>${svgPilar}<table><tr><th>Aco</th><th>Bitola</th><th>Quant.</th></tr><tr><td>Barras verticais</td><td>12,5 mm</td><td>6</td></tr><tr><td>Estribos</td><td>5 mm</td><td>C/15</td></tr></table></div>
-              <div class="box"><h2>3. BALDRAME</h2>${beamSvg(baldrame, "Baldrame", baldrame.secao || "20 x 30 cm", "2Ø10 sup. + 2Ø10 inf.", "Ø5 c/20")}<table><tr><th>Aco</th><th>Bitola</th><th>Comp.</th></tr><tr><td>Superior/inferior</td><td>10 mm</td><td>Continuo</td></tr><tr><td>Estribos</td><td>5 mm</td><td>C/20</td></tr></table></div>
-              <div class="box"><h2>4. CINTA INTERMEDIARIA</h2>${beamSvg(cintaInt, "Cinta intermediaria", cintaInt.secao || "14 x 20 cm", "4Ø8 continuo", "Ø5 c/20")}</div>
-              <div class="box"><h2>5. CINTA SUPERIOR</h2>${beamSvg(cintaSup, "Cinta superior", cintaSup.secao || "20 x 25 cm", "4Ø10 continuo", "Ø5 c/15")}</div>
+              ${detailSections}
               <div class="box"><h2>6. QUANTITATIVO GERAL</h2><table><tr><th>Item</th><th>Secao</th><th>Qtd.</th><th>Concreto m3</th><th>Aco kg</th></tr>${rowsDetalhes}</table><table><tr><th>Total concreto</th><th>Total aco</th></tr><tr><td>${formatNumber(totalConcreto)} m3</td><td>${formatNumber(totalAco)} kg</td></tr></table></div>
               <div class="box wide"><h2>7. OBSERVACOES</h2><div class="obs">${resultado.avisos.slice(0, 4).map(item => `<p>- ${esc(item)}</p>`).join("")}<p>- Cobrimento, transpasses, ancoragens e verificacoes estruturais devem ser revisados por profissional habilitado.</p><p>- Prancha preliminar para estudo/orcamento. Nao substitui projeto executivo.</p></div></div>
               <div class="box"><h2>8. LEGENDA</h2><div class="legend"><p><span><i class="red"></i>Aco longitudinal</span></p><p><span><i class="green"></i>Estribos</span></p><p>Confianca: ${resultado.nivelConfianca}%</p><p>Fundacao: ${esc(resultado.tipoFundacao)}</p></div></div>
@@ -2665,6 +2670,14 @@
       });
       byId("engenhariaCarregarObra").addEventListener("click", () => {
         loadEngenhariaFromObra();
+        engenhariaResultadoAtual = null;
+        renderEngenhariaResultado(null);
+      });
+      byId("engenhariaForm").addEventListener("input", () => {
+        engenhariaResultadoAtual = null;
+      });
+      byId("engenhariaForm").addEventListener("change", () => {
+        engenhariaResultadoAtual = null;
       });
       byId("engenhariaForm").addEventListener("submit", e => {
         e.preventDefault();
@@ -2672,7 +2685,7 @@
         renderEngenhariaResultado(engenhariaResultadoAtual);
       });
       byId("engenhariaSalvarResultado").addEventListener("click", () => {
-        if (!engenhariaResultadoAtual) engenhariaResultadoAtual = calcularEngenhariaCore();
+        engenhariaResultadoAtual = calcularEngenhariaCore();
         const obraId = byId("engenhariaObraSelect").value;
         if (!obraId) {
           alert("Cadastre ou selecione uma obra antes de salvar.");
