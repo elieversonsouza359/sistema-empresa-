@@ -1430,11 +1430,10 @@
         const obra = db.obras.find(o => o.id === byId("engenhariaObraSelect").value) || db.obras[0];
         if (!obra) return;
         const metrics = getObraMetragem(obra);
-        const comprimentoEstimado = metrics.areaTerrea && metrics.perimetro ? Math.max(1, metrics.perimetro / 4) : "";
-        const larguraEstimada = metrics.areaTerrea && comprimentoEstimado ? metrics.areaTerrea / comprimentoEstimado : "";
+        const entradasSalvas = getControle(obra.id).engenhariaCore?.entradas || {};
         byId("engenhariaFundacao").value = obra.fundacao === "radier" ? "radier" : obra.fundacao === "sapata" ? "sapata" : "baldrame";
-        byId("engenhariaComprimento").value = comprimentoEstimado ? Number(comprimentoEstimado.toFixed(2)) : "";
-        byId("engenhariaLargura").value = larguraEstimada ? Number(larguraEstimada.toFixed(2)) : "";
+        byId("engenhariaComprimento").value = entradasSalvas.comprimento || "";
+        byId("engenhariaLargura").value = entradasSalvas.largura || "";
         byId("engenhariaArea").value = metrics.areaTerrea || metrics.totalArea || "";
         byId("engenhariaPerimetro").value = metrics.perimetro || "";
         byId("engenhariaPavimentos").value = metrics.pavimentos || 1;
@@ -1448,8 +1447,9 @@
         const tipoFundacao = byId("engenhariaFundacao").value;
         const comprimento = engenhariaNumber("engenhariaComprimento");
         const largura = engenhariaNumber("engenhariaLargura");
-        const area = engenhariaNumber("engenhariaArea", comprimento * largura || Number(obra.areaTerrea || 0) || Number(obra.areaSuperior || 0));
-        const perimetro = engenhariaNumber("engenhariaPerimetro", comprimento && largura ? 2 * (comprimento + largura) : Number(obra.perimetro || 0));
+        const dimensoesInformadas = comprimento > 0 && largura > 0;
+        const area = dimensoesInformadas ? comprimento * largura : engenhariaNumber("engenhariaArea", Number(obra.areaTerrea || 0) || Number(obra.areaSuperior || 0));
+        const perimetro = dimensoesInformadas ? 2 * (comprimento + largura) : engenhariaNumber("engenhariaPerimetro", Number(obra.perimetro || 0));
         const pavimentos = Math.max(1, Math.round(engenhariaNumber("engenhariaPavimentos", Number(obra.areaSuperior || 0) > 0 ? 2 : 1)));
         const peDireito = engenhariaNumber("engenhariaPeDireito", Number(obra.peDireito || 0) || 2.8);
         const qtdSapatas = Math.round(engenhariaNumber("engenhariaQtdSapatas", perimetro ? Math.max(4, Math.ceil(perimetro / 4)) : 0));
@@ -1469,6 +1469,7 @@
         const hipoteses = [
           `Fase: ${byId("engenhariaFase").value}.`,
           `Fundacao analisada: ${byId("engenhariaFundacao").selectedOptions[0]?.textContent || tipoFundacao}.`,
+          dimensoesInformadas ? `Comprimento e largura informados manualmente: ${formatNumber(comprimento)} m x ${formatNumber(largura)} m.` : "Comprimento e largura nao informados; area/perimetro vieram do cadastro da obra.",
           `Area considerada: ${formatNumber(area)} m2; perimetro considerado: ${formatNumber(perimetro)} m.`,
           `Tensao admissivel preliminar adotada: ${formatNumber(tensaoSolo)} kPa.`
         ];
