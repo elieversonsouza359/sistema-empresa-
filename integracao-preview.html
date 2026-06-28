@@ -565,6 +565,7 @@
             <button class="primary" type="submit">Calcular engenharia</button>
             <button id="engenhariaCarregarObra" type="button">Carregar dados da obra</button>
             <button id="engenhariaSalvarResultado" type="button">Salvar resultado na obra</button>
+            <button id="engenhariaExportarDetalhesPdf" type="button">Gerar PDF de detalhes</button>
           </form>
           <div class="card">
             <div class="toolbar">
@@ -818,6 +819,7 @@
           { selector: "#engenhariaCarregarObra", title: "Carregar dados da obra", text: "Use este botao para puxar area, perimetro, pavimentos e pe-direito ja cadastrados no Admin ou Controle de Obra." },
           { selector: "#engenhariaQuantitativos", title: "Quantitativos", text: "Aqui aparecem volumes de concreto, area de forma e pesos de aco calculados com memoria BMU." },
           { selector: "#engenhariaMateriais", title: "Materiais", text: "A lista resume o que comprar ou cotar: concreto, barras, estribos, tela e formas." },
+          { selector: "#engenhariaExportarDetalhesPdf", title: "PDF de detalhes", text: "Gere um PDF com detalhes preliminares de ferragem, quantitativos, observacoes e fontes tecnicas vinculadas." },
           { selector: "#engenhariaMemoria", title: "Memoria tecnica", text: "Confira hipoteses, avisos, confianca e formulas usadas. Pre-dimensionamento precisa validacao tecnica." }
         ],
         cliente: [
@@ -1504,6 +1506,15 @@
         const acoTotal = acoBaldrameLong + acoEstribosBaldrame + acoSapatas + acoBrocas + acoRadier;
         formulas.push(engenhariaBmu("BMU-000302", "Peso linear de barra", "kg", acoTotal, { diametros_mm: "5, 10 e tela", comprimento_estimado_m: perimetro }, "kg/m = d2 / 162", [`Aco estimado total = ${formatNumber(acoTotal)} kg.`]));
         const formaTotal = formaBaldrame + formaSapatas + formaBrocas + formaRadier;
+        const detalhesArmadura = [
+          usarSapatas ? { elemento: "Sapata isolada", secao: `${formatNumber(sapC * 100)} x ${formatNumber(sapL * 100)} x ${formatNumber(sapH * 100)} cm`, armadura: "Malha inferior e superior com barras diam. 10 mm c/15 cm nas duas direcoes.", estribos: "Sem estribos; prever arranque do pilar conforme projeto.", quantidade: `${qtdSapatas} un`, concretoM3: vSapatas, acoKg: acoSapatas } : null,
+          qtdBrocas ? { elemento: "Broca", secao: `Diam. ${formatNumber(brocaD * 100)} cm x ${formatNumber(brocaProf)} m`, armadura: "4 barras longitudinais diam. 10 mm.", estribos: "Estribos diam. 5 mm c/20 cm.", quantidade: `${qtdBrocas} un`, concretoM3: vBrocas, acoKg: acoBrocas } : null,
+          usarBaldrame ? { elemento: "Baldrame", secao: `${formatNumber(balB * 100)} x ${formatNumber(balH * 100)} cm`, armadura: "2 barras superiores diam. 10 mm + 2 barras inferiores diam. 10 mm.", estribos: "Estribos diam. 5 mm c/20 cm.", quantidade: `${formatNumber(perimetro)} m`, concretoM3: vBaldrame, acoKg: acoBaldrameLong + acoEstribosBaldrame } : null,
+          usarRadier ? { elemento: "Radier", secao: `${formatNumber(area)} m2 x ${formatNumber(radierEsp * 100)} cm`, armadura: `Tela soldada estimada com ${formatNumber(telaKgM2)} kg/m2.`, estribos: "Verificar punção e reforços localizados nos apoios.", quantidade: `${formatNumber(area)} m2`, concretoM3: vRadier, acoKg: acoRadier } : null,
+          { elemento: "Pilar preliminar", secao: "20 x 30 cm", armadura: "6 barras verticais diam. 12,5 mm.", estribos: "Estribos diam. 5 mm c/15 cm.", quantidade: `${Math.max(qtdSapatas, qtdBrocas, 4)} un`, concretoM3: Math.max(qtdSapatas, qtdBrocas, 4) * 0.2 * 0.3 * peDireito, acoKg: Math.max(qtdSapatas, qtdBrocas, 4) * engenhariaPesoBarra(12.5, peDireito, 6) },
+          perimetro ? { elemento: "Cinta intermediaria", secao: "14 x 20 cm", armadura: "4 barras diam. 8 mm continuas.", estribos: "Estribos diam. 5 mm c/20 cm.", quantidade: `${formatNumber(perimetro)} m`, concretoM3: perimetro * 0.14 * 0.2, acoKg: engenhariaPesoBarra(8, perimetro, 4) } : null,
+          perimetro ? { elemento: "Cinta superior", secao: "20 x 25 cm", armadura: "4 barras diam. 10 mm continuas.", estribos: "Estribos diam. 5 mm c/15 cm.", quantidade: `${formatNumber(perimetro)} m`, concretoM3: perimetro * 0.2 * 0.25, acoKg: engenhariaPesoBarra(10, perimetro, 4) } : null
+        ].filter(Boolean);
         const confianca = Math.max(35, Math.min(88, 45 + (solo === "spt" ? 25 : solo === "firme" ? 15 : 5) + (area && perimetro ? 10 : 0) + (qtdSapatas || usarRadier ? 8 : 0)));
         const quantitativos = [
           { item: "Concreto baldrame", unidade: "m3", qtd: vBaldrame },
@@ -1534,6 +1545,7 @@
           entradas: { comprimento, largura, area, perimetro, pavimentos, peDireito, solo, spt, tensaoSolo, qtdSapatas, qtdBrocas },
           quantitativos,
           materiais,
+          detalhesArmadura,
           formulasUtilizadas: formulasAtivas.map(f => f.codigo),
           fontesTecnicas,
           hipoteses,
@@ -1777,6 +1789,62 @@
         link.click();
         link.remove();
         URL.revokeObjectURL(url);
+      }
+
+      function exportEngenhariaDetalhesPdf() {
+        if (!engenhariaResultadoAtual) engenhariaResultadoAtual = calcularEngenhariaCore();
+        const obra = db.obras.find(o => o.id === byId("engenhariaObraSelect").value) || {};
+        const resultado = engenhariaResultadoAtual;
+        const pages = [];
+        let current = [];
+        const maxLines = 42;
+        const push = line => {
+          if (current.length >= maxLines) {
+            pages.push(current);
+            current = [];
+          }
+          current.push(line);
+        };
+        const totalConcreto = resultado.quantitativos.find(item => item.item === "Concreto com perda")?.qtd || 0;
+        const totalAco = resultado.quantitativos.find(item => item.item.includes("Aco"))?.qtd || 0;
+        push("E-CORP SERVICOS LTDA");
+        push("DETALHAMENTO PRELIMINAR DE ARMADURA");
+        push(`Obra: ${obra.nome || "-"} | Cliente: ${obra.cliente || "-"} | Tipo: ${obra.tipo || "-"}`);
+        push(`Dimensoes consideradas: ${formatNumber(resultado.entradas.comprimento)} m x ${formatNumber(resultado.entradas.largura)} m | Area: ${formatNumber(resultado.entradas.area)} m2 | Perimetro: ${formatNumber(resultado.entradas.perimetro)} m`);
+        push(`Fundacao: ${resultado.tipoFundacao} | Fase: ${resultado.faseProjeto} | Confianca: ${resultado.nivelConfianca}% | Validacao tecnica: necessaria`);
+        push("");
+        push("1. DETALHES DE ARMADURA");
+        (resultado.detalhesArmadura || []).forEach((item, index) => {
+          push(`${index + 1}. ${item.elemento} | Secao/dimensao: ${item.secao} | Quantidade: ${item.quantidade}`);
+          splitPdfText(`Armadura: ${item.armadura}`, 112).forEach(push);
+          splitPdfText(`Estribos/observacoes: ${item.estribos}`, 112).forEach(push);
+          push(`Concreto estimado: ${formatNumber(item.concretoM3)} m3 | Aco estimado: ${formatNumber(item.acoKg)} kg`);
+          push("");
+        });
+        push("2. CROQUI TEXTUAL DE REFERENCIA");
+        push("Sapata: planta quadrada/retangular com malha em duas direcoes; corte com arranque do pilar.");
+        push("Pilar: barras verticais nos cantos e faces; estribos fechados conforme espacamento preliminar.");
+        push("Baldrame/cintas: barras longitudinais continuas; estribos distribuidos ao longo do comprimento.");
+        push("Radier: tela soldada em area total; verificar reforcos localizados e puncao nos apoios.");
+        push("");
+        push("3. QUANTITATIVO GERAL ESTIMATIVO");
+        resultado.quantitativos.forEach(item => push(`${item.item}: ${formatNumber(item.qtd)} ${item.unidade}`));
+        push(`TOTAL CONCRETO COM PERDA: ${formatNumber(totalConcreto)} m3`);
+        push(`TOTAL ACO ESTIMADO: ${formatNumber(totalAco)} kg`);
+        push("");
+        push("4. OBSERVACOES TECNICAS");
+        resultado.hipoteses.forEach(item => splitPdfText(`Hipotese: ${item}`, 112).forEach(push));
+        resultado.avisos.forEach(item => splitPdfText(`Aviso: ${item}`, 112).forEach(push));
+        push("Cobrimento, ancoragens, transpasses, verificacoes de ELU/ELS e compatibilizacao devem ser revisados por profissional habilitado.");
+        push("Este PDF e um pre-dimensionamento para estudo/orcamento; nao substitui projeto estrutural executivo.");
+        push("");
+        push("5. FONTES TECNICAS VINCULADAS");
+        (resultado.fontesTecnicas || []).forEach(ref => splitPdfText(`${ref.id} - ${ref.modulo}: ${ref.arquivo}`, 112).forEach(push));
+        push("");
+        push(`BMU: ${resultado.metadados.versaoBMU} | Motor: ${resultado.metadados.motor} ${resultado.metadados.versaoMotor} | Data: ${resultado.calculadoEm}`);
+        if (current.length) pages.push(current);
+        const filename = `detalhamento-armadura-${normalizeText(obra.nome || "obra").replace(/\s+/g, "-")}.pdf`;
+        downloadBlob(buildSimplePdf(pages), filename);
       }
 
       function exportPlanoPdfFile(obra, stats, finance, rows) {
@@ -2432,6 +2500,9 @@
         alert("Resultado de engenharia salvo na obra.");
         renderAll();
         showView("engenharia");
+      });
+      byId("engenhariaExportarDetalhesPdf").addEventListener("click", () => {
+        exportEngenhariaDetalhesPdf();
       });
       byId("controleAlocados").addEventListener("change", e => {
         if (!e.target.matches("[data-alocado]")) return;
