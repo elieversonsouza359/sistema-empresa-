@@ -567,6 +567,7 @@
             <button id="engenhariaSalvarResultado" type="button">Salvar resultado na obra</button>
             <button id="engenhariaExportarDetalhesPdf" type="button">Gerar PDF de detalhes</button>
             <button id="engenhariaExportarPrancha" type="button">Gerar prancha ilustrada</button>
+            <button id="engenhariaExportarLocacao" type="button">Gerar prancha de locacao</button>
           </form>
           <div class="card">
             <div class="toolbar">
@@ -1943,74 +1944,85 @@
         const totalConcreto = resultado.quantitativos.find(item => item.item === "Concreto com perda")?.qtd || 0;
         const totalAco = resultado.quantitativos.find(item => item.item.includes("Aco"))?.qtd || 0;
         const esc = value => escapeHtml(value);
-        const detalhe = nome => detalhes.find(item => normalizeText(item.elemento).includes(normalizeText(nome))) || {};
-        const sapata = detalhe("Sapata");
-        const pilar = detalhe("Pilar");
-        const baldrame = detalhe("Baldrame");
-        const cintaInt = detalhe("Cinta intermediaria");
-        const cintaSup = detalhe("Cinta superior");
-        const svgSapata = `
-          <svg viewBox="0 0 360 230" class="draw">
-            <rect x="70" y="30" width="160" height="160" fill="#fff" stroke="#0b2248" stroke-width="2"/>
-            <path d="M70 30 L230 190 M230 30 L70 190" stroke="#9aa6b2"/>
-            <rect x="125" y="85" width="50" height="50" fill="#f8fafc" stroke="#0b2248"/>
-            <rect x="135" y="95" width="30" height="30" fill="none" stroke="#111"/>
-            <line x1="100" y1="205" x2="200" y2="205" stroke="#ef4444" stroke-width="3"/>
-            <line x1="110" y1="195" x2="210" y2="195" stroke="#ef4444" stroke-width="3"/>
-            <text x="20" y="112">A</text><text x="248" y="112">A</text>
-            <text x="110" y="20">${esc(sapata.secao || "80 x 80 x 40 cm")}</text>
-            <text x="15" y="215" fill="#064e3b">Malha Ã˜10 c/15</text>
+        const drawLongitudinal = () => `
+          <svg viewBox="0 0 520 190" class="draw" aria-label="Detalhe longitudinal esquematico">
+            <rect x="42" y="62" width="352" height="70" fill="#fff" stroke="#0b2248" stroke-width="3"/>
+            <line x1="58" y1="78" x2="378" y2="78" stroke="#dc2626" stroke-width="4"/>
+            <line x1="58" y1="116" x2="378" y2="116" stroke="#dc2626" stroke-width="4"/>
+            ${Array.from({ length: 14 }, (_, i) => 66 + i * 22).map(x => `<rect x="${x}" y="70" width="14" height="52" fill="none" stroke="#047857" stroke-width="2"/>`).join("")}
+            <rect x="430" y="45" width="54" height="104" fill="#fff" stroke="#0b2248" stroke-width="3"/>
+            ${[[444,62],[470,62],[444,132],[470,132]].map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="5" fill="#dc2626"/>`).join("")}
+            <rect x="440" y="60" width="34" height="74" fill="none" stroke="#047857" stroke-width="2"/>
           </svg>`;
-        const svgPilar = `
-          <svg viewBox="0 0 360 230" class="draw">
-            <rect x="70" y="20" width="70" height="180" fill="#f8fafc" stroke="#0b2248" stroke-width="2"/>
-            ${[35,60,85,110,135,160,185].map(y => `<rect x="78" y="${y}" width="54" height="10" rx="2" fill="none" stroke="#047857"/>`).join("")}
-            ${[86,124].map(x => `<line x1="${x}" y1="24" x2="${x}" y2="196" stroke="#dc2626" stroke-width="3"/>`).join("")}
-            <rect x="220" y="70" width="70" height="95" fill="#fff" stroke="#0b2248" stroke-width="2"/>
-            ${[[235,88],[275,88],[235,147],[275,147],[255,88],[255,147]].map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="4" fill="#dc2626"/>`).join("")}
-            <rect x="232" y="84" width="46" height="67" fill="none" stroke="#047857"/>
-            <text x="20" y="112" transform="rotate(-90 20 112)">Pe direito ${formatNumber(resultado.entradas.peDireito)} m</text>
-            <text x="160" y="50" fill="#dc2626">${esc(pilar.armadura || "6Ã˜12,5")}</text>
-            <text x="160" y="72" fill="#047857">${esc(pilar.estribos || "Ã˜5 c/15")}</text>
+        const drawSapata = () => `
+          <svg viewBox="0 0 520 190" class="draw" aria-label="Detalhe de sapata esquematico">
+            <rect x="96" y="26" width="138" height="138" fill="#fff" stroke="#0b2248" stroke-width="3"/>
+            <path d="M96 26 L234 164 M234 26 L96 164" stroke="#94a3b8" stroke-width="2"/>
+            <rect x="142" y="72" width="46" height="46" fill="#f8fafc" stroke="#0b2248" stroke-width="2"/>
+            ${Array.from({ length: 7 }, (_, i) => 112 + i * 17).map(x => `<line x1="${x}" y1="42" x2="${x}" y2="148" stroke="#dc2626" stroke-width="2"/>`).join("")}
+            ${Array.from({ length: 7 }, (_, i) => 42 + i * 17).map(y => `<line x1="112" y1="${y}" x2="218" y2="${y}" stroke="#dc2626" stroke-width="2"/>`).join("")}
+            <rect x="315" y="88" width="150" height="50" fill="#fff" stroke="#0b2248" stroke-width="3"/>
+            <line x1="326" y1="126" x2="454" y2="126" stroke="#dc2626" stroke-width="4"/>
+            <line x1="326" y1="100" x2="454" y2="100" stroke="#dc2626" stroke-width="4"/>
           </svg>`;
-        const beamSvg = (item, titulo, secao, barras, estribos) => `
-          <svg viewBox="0 0 360 170" class="draw">
-            <rect x="35" y="55" width="250" height="50" fill="#fff" stroke="#0b2248" stroke-width="2"/>
-            <line x1="45" y1="95" x2="275" y2="95" stroke="#dc2626" stroke-width="3"/>
-            <line x1="45" y1="65" x2="275" y2="65" stroke="#dc2626" stroke-width="3"/>
-            ${Array.from({ length: 12 }, (_, i) => 50 + i * 19).map(x => `<rect x="${x}" y="60" width="12" height="40" fill="none" stroke="#047857"/>`).join("")}
-            <rect x="305" y="45" width="42" height="75" fill="#fff" stroke="#0b2248" stroke-width="2"/>
-            ${[[315,58],[337,58],[315,107],[337,107]].map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="#dc2626"/>`).join("")}
-            <rect x="313" y="56" width="26" height="52" fill="none" stroke="#047857"/>
-            <text x="35" y="25">${esc(titulo)} - ${esc(secao)}</text>
-            <text x="45" y="145" fill="#dc2626">${esc(barras)}</text>
-            <text x="185" y="145" fill="#047857">${esc(estribos)}</text>
+        const drawBroca = () => `
+          <svg viewBox="0 0 520 190" class="draw" aria-label="Detalhe de broca esquematico">
+            <rect x="210" y="20" width="80" height="150" fill="#f8fafc" stroke="#0b2248" stroke-width="3"/>
+            ${Array.from({ length: 8 }, (_, i) => 38 + i * 16).map(y => `<rect x="222" y="${y}" width="56" height="10" fill="none" stroke="#047857" stroke-width="2"/>`).join("")}
+            ${[228,272].map(x => `<line x1="${x}" y1="24" x2="${x}" y2="166" stroke="#dc2626" stroke-width="4"/>`).join("")}
+            <line x1="164" y1="170" x2="336" y2="170" stroke="#64748b" stroke-width="2"/>
           </svg>`;
+        const drawRadier = () => `
+          <svg viewBox="0 0 520 190" class="draw" aria-label="Detalhe de radier esquematico">
+            <rect x="70" y="30" width="360" height="120" fill="#fff" stroke="#0b2248" stroke-width="3"/>
+            ${Array.from({ length: 12 }, (_, i) => 88 + i * 28).map(x => `<line x1="${x}" y1="42" x2="${x}" y2="138" stroke="#dc2626" stroke-width="2"/>`).join("")}
+            ${Array.from({ length: 5 }, (_, i) => 52 + i * 20).map(y => `<line x1="82" y1="${y}" x2="418" y2="${y}" stroke="#047857" stroke-width="2"/>`).join("")}
+            <path d="M70 150 L430 150" stroke="#64748b" stroke-width="5"/>
+          </svg>`;
+        const drawPilar = () => `
+          <svg viewBox="0 0 520 190" class="draw" aria-label="Detalhe de pilar esquematico">
+            <rect x="150" y="22" width="74" height="146" fill="#f8fafc" stroke="#0b2248" stroke-width="3"/>
+            ${Array.from({ length: 7 }, (_, i) => 40 + i * 18).map(y => `<rect x="160" y="${y}" width="54" height="10" rx="2" fill="none" stroke="#047857" stroke-width="2"/>`).join("")}
+            ${[168,206].map(x => `<line x1="${x}" y1="28" x2="${x}" y2="162" stroke="#dc2626" stroke-width="4"/>`).join("")}
+            <rect x="310" y="55" width="74" height="92" fill="#fff" stroke="#0b2248" stroke-width="3"/>
+            ${[[326,72],[368,72],[326,130],[368,130],[347,72],[347,130]].map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="5" fill="#dc2626"/>`).join("")}
+            <rect x="322" y="70" width="50" height="62" fill="none" stroke="#047857" stroke-width="2"/>
+          </svg>`;
+        const detailSvg = item => {
+          const name = normalizeText(item.elemento);
+          if (name.includes("sapata")) return drawSapata();
+          if (name.includes("broca")) return drawBroca();
+          if (name.includes("radier")) return drawRadier();
+          if (name.includes("pilar")) return drawPilar();
+          return drawLongitudinal();
+        };
         const rowsDetalhes = detalhes.map(item => `<tr><td>${esc(item.elemento)}</td><td>${esc(item.secao)}</td><td>${esc(item.quantidade)}</td><td>${formatNumber(item.concretoM3)}</td><td>${formatNumber(item.acoKg)}</td></tr>`).join("");
         const detailSections = detalhes.map((item, index) => `
               <div class="box">
                 <h2>${index + 1}. ${esc(item.elemento).toUpperCase()}</h2>
-                ${beamSvg(item, item.elemento, item.secao, item.armadura, item.estribos)}
+                ${detailSvg(item)}
+                <div class="notes"><strong>Armadura:</strong> ${esc(item.armadura)}<br><strong>Estribos/reforcos:</strong> ${esc(item.estribos)}</div>
                 <table><tr><th>Secao</th><th>Qtd.</th><th>Concreto</th><th>Aco</th></tr><tr><td>${esc(item.secao)}</td><td>${esc(item.quantidade)}</td><td>${formatNumber(item.concretoM3)} m3</td><td>${formatNumber(item.acoKg)} kg</td></tr></table>
               </div>
         `).join("");
         const html = `<!doctype html><html><head><meta charset="utf-8"><title>Prancha de armadura</title>
           <style>
-            @page { size: A3 landscape; margin: 8mm; }
+            @page { size: A1 landscape; margin: 10mm; }
             * { box-sizing: border-box; } body { font-family: Arial, sans-serif; color:#061733; margin:0; }
-            .sheet { border:2px solid #0b2248; min-height: 96vh; display:grid; grid-template-rows:auto 1fr auto; }
-            header { text-align:center; border-bottom:1.5px solid #0b2248; padding:8px 12px; }
-            h1 { font-size:26px; margin:0; letter-spacing:.02em; } h2 { color:#0b2248; font-size:15px; margin:0 0 6px; }
-            .sub { font-size:13px; margin-top:4px; color:#334155; }
-            .grid { display:grid; grid-template-columns: 1.15fr 1fr 1.15fr; grid-auto-rows:minmax(230px, auto); }
-            .box { border-right:1px solid #0b2248; border-bottom:1px solid #0b2248; padding:10px 12px; }
-            .box:nth-child(3n) { border-right:0; } .wide { grid-column: span 2; }
-            .draw { width:100%; height:170px; display:block; }
-            table { width:100%; border-collapse:collapse; font-size:11px; margin-top:6px; }
+            .sheet { border:2px solid #0b2248; min-height: calc(100vh - 20mm); display:grid; grid-template-rows:auto 1fr auto; background:#fff; }
+            header { text-align:center; border-bottom:1.5px solid #0b2248; padding:10px 14px; }
+            h1 { font-size:34px; margin:0; letter-spacing:.02em; } h2 { color:#0b2248; font-size:18px; margin:0 0 8px; }
+            .sub { font-size:15px; margin-top:5px; color:#334155; }
+            .grid { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); align-content:start; }
+            .box { border-right:1px solid #0b2248; border-bottom:1px solid #0b2248; padding:12px 14px; min-height:280px; page-break-inside:avoid; }
+            .box:nth-child(4n) { border-right:0; } .wide { grid-column: span 2; }
+            .draw { width:100%; height:185px; display:block; margin:3px 0 8px; }
+            .notes { min-height:52px; font-size:13px; line-height:1.35; color:#1f2937; }
+            table { width:100%; border-collapse:collapse; font-size:12px; margin-top:8px; }
             th,td { border:1px solid #94a3b8; padding:5px; text-align:left; } th { background:#eef2f7; color:#0b2248; }
-            .obs { font-size:12px; line-height:1.45; } .legend span { display:inline-flex; align-items:center; gap:6px; margin-right:16px; }
+            .obs { font-size:13px; line-height:1.45; } .legend span { display:inline-flex; align-items:center; gap:6px; margin-right:16px; }
             .red,.green { width:30px; height:2px; display:inline-block; } .red { background:#dc2626; } .green { background:#047857; }
-            footer { display:grid; grid-template-columns:2fr 1fr; border-top:1.5px solid #0b2248; font-size:11px; }
+            footer { display:grid; grid-template-columns:2fr 1fr; border-top:1.5px solid #0b2248; font-size:12px; }
             footer div { padding:8px 10px; } .stamp { border-left:1px solid #0b2248; }
             @media print { button { display:none; } .sheet { min-height: auto; } }
           </style></head><body>
@@ -2030,6 +2042,112 @@
         const win = window.open("", "_blank");
         if (!win) {
           alert("Permita pop-ups para abrir a prancha ilustrada.");
+          return;
+        }
+        win.document.open();
+        win.document.write(html);
+        win.document.close();
+      }
+
+      function exportEngenhariaPranchaLocacao() {
+        engenhariaResultadoAtual = calcularEngenhariaCore();
+        const obra = db.obras.find(o => o.id === byId("engenhariaObraSelect").value) || {};
+        const resultado = engenhariaResultadoAtual;
+        const esc = value => escapeHtml(value);
+        const tipo = resultado.tipoFundacao;
+        let comprimento = Number(resultado.entradas.comprimento || 0);
+        let largura = Number(resultado.entradas.largura || 0);
+        const area = Number(resultado.entradas.area || 0);
+        const perimetro = Number(resultado.entradas.perimetro || 0);
+        let dimensaoEstimada = false;
+        if (!(comprimento > 0 && largura > 0) && area > 0 && perimetro > 0) {
+          const semiperimetro = perimetro / 2;
+          const discriminante = Math.max(0, Math.pow(semiperimetro, 2) - 4 * area);
+          comprimento = (semiperimetro + Math.sqrt(discriminante)) / 2;
+          largura = area / Math.max(comprimento, 0.01);
+          dimensaoEstimada = true;
+        }
+        comprimento = comprimento || Math.sqrt(area || 100);
+        largura = largura || (area ? area / comprimento : comprimento * 0.6);
+        const detalheApoio = (resultado.detalhesArmadura || []).find(item => ["sapata", "broca", "pilar"].some(key => normalizeText(item.elemento).includes(key)));
+        const qtdApoios = Math.max(4, Math.round(Number(String(detalheApoio?.quantidade || "").match(/\d+/)?.[0] || resultado.entradas.qtdSapatas || resultado.entradas.qtdBrocas || 4)));
+        const x0 = 110;
+        const y0 = 115;
+        const w = 850;
+        const h = Math.max(260, Math.min(520, w * (largura / Math.max(comprimento, 0.01))));
+        const y1 = y0 + h;
+        const x1 = x0 + w;
+        const supports = [];
+        const sideCount = Math.max(2, Math.ceil(qtdApoios / 4));
+        for (let i = 0; i < sideCount; i += 1) {
+          const t = sideCount === 1 ? 0.5 : i / (sideCount - 1);
+          supports.push([x0 + t * w, y0], [x0 + t * w, y1]);
+          if (i > 0 && i < sideCount - 1) supports.push([x0, y0 + t * h], [x1, y0 + t * h]);
+        }
+        const supportSvg = supports.slice(0, qtdApoios).map(([x, y], i) => {
+          if (tipo === "radier") return `<circle cx="${x}" cy="${y}" r="7" fill="#0b2248"/><text x="${x + 10}" y="${y - 8}">P${i + 1}</text>`;
+          if (tipo === "broca_baldrame") return `<circle cx="${x}" cy="${y}" r="10" fill="#fff" stroke="#0b2248" stroke-width="3"/><circle cx="${x}" cy="${y}" r="4" fill="#dc2626"/><text x="${x + 13}" y="${y - 8}">B${i + 1}</text>`;
+          return `<rect x="${x - 11}" y="${y - 11}" width="22" height="22" fill="#fff" stroke="#0b2248" stroke-width="3"/><circle cx="${x}" cy="${y}" r="4" fill="#dc2626"/><text x="${x + 14}" y="${y - 8}">S${i + 1}</text>`;
+        }).join("");
+        const foundationLines = tipo === "radier"
+          ? `<rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="#dbeafe" opacity=".38" stroke="#0b2248" stroke-width="3"/>
+             ${Array.from({ length: 9 }, (_, i) => `<line x1="${x0 + i * w / 8}" y1="${y0}" x2="${x0 + i * w / 8}" y2="${y1}" stroke="#94a3b8" stroke-width="1"/>`).join("")}
+             ${Array.from({ length: 6 }, (_, i) => `<line x1="${x0}" y1="${y0 + i * h / 5}" x2="${x1}" y2="${y0 + i * h / 5}" stroke="#94a3b8" stroke-width="1"/>`).join("")}`
+          : `<rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="#fff" stroke="#0b2248" stroke-width="3"/>
+             <rect x="${x0 + 22}" y="${y0 + 22}" width="${w - 44}" height="${h - 44}" fill="none" stroke="#047857" stroke-width="3" stroke-dasharray="14 10"/>`;
+        const html = `<!doctype html><html><head><meta charset="utf-8"><title>Prancha de locacao</title>
+          <style>
+            @page { size: A1 landscape; margin: 10mm; }
+            * { box-sizing:border-box; } body { margin:0; font-family:Arial, sans-serif; color:#061733; }
+            .sheet { border:2px solid #0b2248; min-height:calc(100vh - 20mm); display:grid; grid-template-rows:auto 1fr auto; background:white; }
+            header { text-align:center; border-bottom:1.5px solid #0b2248; padding:10px 14px; }
+            h1 { font-size:34px; margin:0; letter-spacing:.02em; } h2 { color:#0b2248; font-size:17px; margin:0 0 8px; }
+            .sub { font-size:15px; color:#334155; margin-top:5px; }
+            main { display:grid; grid-template-columns: 2.45fr .95fr; min-height:0; }
+            .plan { border-right:1.5px solid #0b2248; padding:14px; }
+            .side { display:grid; grid-template-rows:auto auto 1fr; }
+            .box { border-bottom:1px solid #0b2248; padding:14px; }
+            svg { width:100%; height:690px; display:block; }
+            table { width:100%; border-collapse:collapse; font-size:13px; }
+            th,td { border:1px solid #94a3b8; padding:7px; text-align:left; } th { background:#eef2f7; color:#0b2248; }
+            .note { font-size:13px; line-height:1.45; color:#334155; }
+            footer { display:grid; grid-template-columns:2fr 1fr; border-top:1.5px solid #0b2248; font-size:12px; }
+            footer div { padding:8px 10px; } .stamp { border-left:1px solid #0b2248; }
+            @media print { button { display:none; } .sheet { min-height:auto; } }
+          </style></head><body>
+          <button onclick="window.print()" style="position:fixed;right:14px;top:14px;padding:10px 14px;background:#2f7454;color:white;border:0;border-radius:6px;font-weight:700">Imprimir / salvar PDF</button>
+          <section class="sheet">
+            <header><h1>${esc((obra.nome || "Obra").toUpperCase())} - LOCACAO DA FUNDACAO</h1><div class="sub">Planta esquematica com cotas gerais, eixos e posicionamento preliminar | ${esc(resultado.calculadoEm)}</div></header>
+            <main>
+              <div class="plan">
+                <svg viewBox="0 0 1120 760" aria-label="Planta de locacao esquematica">
+                  <defs>
+                    <marker id="arrow" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0b2248"/></marker>
+                  </defs>
+                  ${foundationLines}
+                  <line x1="${x0}" y1="${y0 - 45}" x2="${x1}" y2="${y0 - 45}" stroke="#0b2248" stroke-width="2" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+                  <line x1="${x0 - 48}" y1="${y0}" x2="${x0 - 48}" y2="${y1}" stroke="#0b2248" stroke-width="2" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+                  <text x="${x0 + w / 2 - 65}" y="${y0 - 58}" font-size="24">${formatNumber(comprimento)} m</text>
+                  <text x="${x0 - 94}" y="${y0 + h / 2}" font-size="24" transform="rotate(-90 ${x0 - 94} ${y0 + h / 2})">${formatNumber(largura)} m</text>
+                  ${["A", "B", "C", "D", "E"].map((axis, i) => `<line x1="${x0 + i * w / 4}" y1="${y0 - 18}" x2="${x0 + i * w / 4}" y2="${y1 + 18}" stroke="#64748b" stroke-width="1.4" stroke-dasharray="8 8"/><text x="${x0 + i * w / 4 - 7}" y="${y0 - 24}" font-size="18">${axis}</text>`).join("")}
+                  ${[1,2,3,4].map((axis, i) => `<line x1="${x0 - 18}" y1="${y0 + i * h / 3}" x2="${x1 + 18}" y2="${y0 + i * h / 3}" stroke="#64748b" stroke-width="1.4" stroke-dasharray="8 8"/><text x="${x0 - 34}" y="${y0 + i * h / 3 + 6}" font-size="18">${axis}</text>`).join("")}
+                  ${supportSvg}
+                  <text x="${x0}" y="${y1 + 58}" font-size="20">Perimetro considerado: ${formatNumber(perimetro)} m | Area considerada: ${formatNumber(area)} m2</text>
+                </svg>
+              </div>
+              <aside class="side">
+                <div class="box"><h2>DADOS DA LOCACAO</h2><table><tr><th>Item</th><th>Valor</th></tr><tr><td>Fundacao</td><td>${esc(byId("engenhariaFundacao").selectedOptions[0]?.textContent || tipo)}</td></tr><tr><td>Comprimento</td><td>${formatNumber(comprimento)} m</td></tr><tr><td>Largura</td><td>${formatNumber(largura)} m</td></tr><tr><td>Area</td><td>${formatNumber(area)} m2</td></tr><tr><td>Perimetro</td><td>${formatNumber(perimetro)} m</td></tr><tr><td>Apoios/eixos</td><td>${qtdApoios} ponto(s)</td></tr></table></div>
+                <div class="box"><h2>REFERENCIAS DO CALCULO</h2><table><tr><th>Elemento</th><th>Secao</th><th>Qtd.</th></tr>${(resultado.detalhesArmadura || []).map(item => `<tr><td>${esc(item.elemento)}</td><td>${esc(item.secao)}</td><td>${esc(item.quantidade)}</td></tr>`).join("")}</table></div>
+                <div class="box note"><h2>OBSERVACOES</h2><p>- Prancha preliminar para locacao e orcamento. Conferir medidas no projeto arquitetonico/estrutural antes da execucao.</p><p>- Os eixos e apoios sao distribuidos de forma automatica para estudo. O posicionamento executivo precisa ser validado por profissional habilitado.</p>${dimensaoEstimada ? "<p>- Comprimento/largura foram estimados pela area e perimetro informados.</p>" : ""}</div>
+              </aside>
+            </main>
+            <footer><div>Fontes: ${(resultado.fontesTecnicas || []).slice(0, 4).map(ref => esc(ref.id)).join(", ")} | BMU ${esc(resultado.metadados.versaoBMU)}</div><div class="stamp">E-CORP SERVICOS LTDA<br>Prancha de locacao automatica</div></footer>
+          </section>
+          <script>setTimeout(() => window.print(), 600);<\/script>
+          </body></html>`;
+        const win = window.open("", "_blank");
+        if (!win) {
+          alert("Permita pop-ups para abrir a prancha de locacao.");
           return;
         }
         win.document.open();
@@ -2704,6 +2822,9 @@
       });
       byId("engenhariaExportarPrancha").addEventListener("click", () => {
         exportEngenhariaPranchaIlustrada();
+      });
+      byId("engenhariaExportarLocacao").addEventListener("click", () => {
+        exportEngenhariaPranchaLocacao();
       });
       byId("controleAlocados").addEventListener("change", e => {
         if (!e.target.matches("[data-alocado]")) return;
