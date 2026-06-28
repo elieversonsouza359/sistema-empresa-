@@ -566,6 +566,7 @@
             <button id="engenhariaCarregarObra" type="button">Carregar dados da obra</button>
             <button id="engenhariaSalvarResultado" type="button">Salvar resultado na obra</button>
             <button id="engenhariaExportarDetalhesPdf" type="button">Gerar PDF de detalhes</button>
+            <button id="engenhariaExportarPrancha" type="button">Gerar prancha ilustrada</button>
           </form>
           <div class="card">
             <div class="toolbar">
@@ -819,7 +820,8 @@
           { selector: "#engenhariaCarregarObra", title: "Carregar dados da obra", text: "Use este botao para puxar area, perimetro, pavimentos e pe-direito ja cadastrados no Admin ou Controle de Obra." },
           { selector: "#engenhariaQuantitativos", title: "Quantitativos", text: "Aqui aparecem volumes de concreto, area de forma e pesos de aco calculados com memoria BMU." },
           { selector: "#engenhariaMateriais", title: "Materiais", text: "A lista resume o que comprar ou cotar: concreto, barras, estribos, tela e formas." },
-          { selector: "#engenhariaExportarDetalhesPdf", title: "PDF de detalhes", text: "Gere um PDF com detalhes preliminares de ferragem, quantitativos, observacoes e fontes tecnicas vinculadas." },
+          { selector: "#engenhariaExportarDetalhesPdf", title: "PDF de detalhes", text: "Gere um PDF textual com detalhes preliminares de ferragem, quantitativos, observacoes e fontes tecnicas vinculadas." },
+          { selector: "#engenhariaExportarPrancha", title: "Prancha ilustrada", text: "Gere uma prancha visual com desenhos esquematicos de sapata, pilar, baldrame, cintas, quantitativos e legenda." },
           { selector: "#engenhariaMemoria", title: "Memoria tecnica", text: "Confira hipoteses, avisos, confianca e formulas usadas. Pre-dimensionamento precisa validacao tecnica." }
         ],
         cliente: [
@@ -1848,6 +1850,105 @@
         downloadBlob(buildSimplePdf(pages), filename);
       }
 
+      function exportEngenhariaPranchaIlustrada() {
+        if (!engenhariaResultadoAtual) engenhariaResultadoAtual = calcularEngenhariaCore();
+        const obra = db.obras.find(o => o.id === byId("engenhariaObraSelect").value) || {};
+        const resultado = engenhariaResultadoAtual;
+        const detalhes = resultado.detalhesArmadura || [];
+        const totalConcreto = resultado.quantitativos.find(item => item.item === "Concreto com perda")?.qtd || 0;
+        const totalAco = resultado.quantitativos.find(item => item.item.includes("Aco"))?.qtd || 0;
+        const esc = value => escapeHtml(value);
+        const detalhe = nome => detalhes.find(item => normalizeText(item.elemento).includes(normalizeText(nome))) || {};
+        const sapata = detalhe("Sapata");
+        const pilar = detalhe("Pilar");
+        const baldrame = detalhe("Baldrame");
+        const cintaInt = detalhe("Cinta intermediaria");
+        const cintaSup = detalhe("Cinta superior");
+        const svgSapata = `
+          <svg viewBox="0 0 360 230" class="draw">
+            <rect x="70" y="30" width="160" height="160" fill="#fff" stroke="#0b2248" stroke-width="2"/>
+            <path d="M70 30 L230 190 M230 30 L70 190" stroke="#9aa6b2"/>
+            <rect x="125" y="85" width="50" height="50" fill="#f8fafc" stroke="#0b2248"/>
+            <rect x="135" y="95" width="30" height="30" fill="none" stroke="#111"/>
+            <line x1="100" y1="205" x2="200" y2="205" stroke="#ef4444" stroke-width="3"/>
+            <line x1="110" y1="195" x2="210" y2="195" stroke="#ef4444" stroke-width="3"/>
+            <text x="20" y="112">A</text><text x="248" y="112">A</text>
+            <text x="110" y="20">${esc(sapata.secao || "80 x 80 x 40 cm")}</text>
+            <text x="15" y="215" fill="#064e3b">Malha Ø10 c/15</text>
+          </svg>`;
+        const svgPilar = `
+          <svg viewBox="0 0 360 230" class="draw">
+            <rect x="70" y="20" width="70" height="180" fill="#f8fafc" stroke="#0b2248" stroke-width="2"/>
+            ${[35,60,85,110,135,160,185].map(y => `<rect x="78" y="${y}" width="54" height="10" rx="2" fill="none" stroke="#047857"/>`).join("")}
+            ${[86,124].map(x => `<line x1="${x}" y1="24" x2="${x}" y2="196" stroke="#dc2626" stroke-width="3"/>`).join("")}
+            <rect x="220" y="70" width="70" height="95" fill="#fff" stroke="#0b2248" stroke-width="2"/>
+            ${[[235,88],[275,88],[235,147],[275,147],[255,88],[255,147]].map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="4" fill="#dc2626"/>`).join("")}
+            <rect x="232" y="84" width="46" height="67" fill="none" stroke="#047857"/>
+            <text x="20" y="112" transform="rotate(-90 20 112)">Pe direito ${formatNumber(resultado.entradas.peDireito)} m</text>
+            <text x="160" y="50" fill="#dc2626">${esc(pilar.armadura || "6Ø12,5")}</text>
+            <text x="160" y="72" fill="#047857">${esc(pilar.estribos || "Ø5 c/15")}</text>
+          </svg>`;
+        const beamSvg = (item, titulo, secao, barras, estribos) => `
+          <svg viewBox="0 0 360 170" class="draw">
+            <rect x="35" y="55" width="250" height="50" fill="#fff" stroke="#0b2248" stroke-width="2"/>
+            <line x1="45" y1="95" x2="275" y2="95" stroke="#dc2626" stroke-width="3"/>
+            <line x1="45" y1="65" x2="275" y2="65" stroke="#dc2626" stroke-width="3"/>
+            ${Array.from({ length: 12 }, (_, i) => 50 + i * 19).map(x => `<rect x="${x}" y="60" width="12" height="40" fill="none" stroke="#047857"/>`).join("")}
+            <rect x="305" y="45" width="42" height="75" fill="#fff" stroke="#0b2248" stroke-width="2"/>
+            ${[[315,58],[337,58],[315,107],[337,107]].map(p => `<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="#dc2626"/>`).join("")}
+            <rect x="313" y="56" width="26" height="52" fill="none" stroke="#047857"/>
+            <text x="35" y="25">${esc(titulo)} - ${esc(secao)}</text>
+            <text x="45" y="145" fill="#dc2626">${esc(barras)}</text>
+            <text x="185" y="145" fill="#047857">${esc(estribos)}</text>
+          </svg>`;
+        const rowsDetalhes = detalhes.map(item => `<tr><td>${esc(item.elemento)}</td><td>${esc(item.secao)}</td><td>${esc(item.quantidade)}</td><td>${formatNumber(item.concretoM3)}</td><td>${formatNumber(item.acoKg)}</td></tr>`).join("");
+        const html = `<!doctype html><html><head><meta charset="utf-8"><title>Prancha de armadura</title>
+          <style>
+            @page { size: A3 landscape; margin: 8mm; }
+            * { box-sizing: border-box; } body { font-family: Arial, sans-serif; color:#061733; margin:0; }
+            .sheet { border:2px solid #0b2248; min-height: 96vh; display:grid; grid-template-rows:auto 1fr auto; }
+            header { text-align:center; border-bottom:1.5px solid #0b2248; padding:8px 12px; }
+            h1 { font-size:26px; margin:0; letter-spacing:.02em; } h2 { color:#0b2248; font-size:15px; margin:0 0 6px; }
+            .sub { font-size:13px; margin-top:4px; color:#334155; }
+            .grid { display:grid; grid-template-columns: 1.15fr 1fr 1.15fr; grid-auto-rows:minmax(230px, auto); }
+            .box { border-right:1px solid #0b2248; border-bottom:1px solid #0b2248; padding:10px 12px; }
+            .box:nth-child(3n) { border-right:0; } .wide { grid-column: span 2; }
+            .draw { width:100%; height:170px; display:block; }
+            table { width:100%; border-collapse:collapse; font-size:11px; margin-top:6px; }
+            th,td { border:1px solid #94a3b8; padding:5px; text-align:left; } th { background:#eef2f7; color:#0b2248; }
+            .obs { font-size:12px; line-height:1.45; } .legend span { display:inline-flex; align-items:center; gap:6px; margin-right:16px; }
+            .red,.green { width:30px; height:2px; display:inline-block; } .red { background:#dc2626; } .green { background:#047857; }
+            footer { display:grid; grid-template-columns:2fr 1fr; border-top:1.5px solid #0b2248; font-size:11px; }
+            footer div { padding:8px 10px; } .stamp { border-left:1px solid #0b2248; }
+            @media print { button { display:none; } .sheet { min-height: auto; } }
+          </style></head><body>
+          <button onclick="window.print()" style="position:fixed;right:14px;top:14px;padding:10px 14px;background:#2f7454;color:white;border:0;border-radius:6px;font-weight:700">Imprimir / salvar PDF</button>
+          <section class="sheet">
+            <header><h1>${esc((obra.nome || "Obra").toUpperCase())} - ARMADURA</h1><div class="sub">Predimensionamento - Concreto Armado - Referencia NBR 6118 | ${esc(resultado.calculadoEm)}</div></header>
+            <main class="grid">
+              <div class="box"><h2>1. SAPATA ISOLADA</h2>${svgSapata}<table><tr><th>Aco</th><th>Bitola</th><th>Qtd.</th><th>Comp.</th></tr><tr><td>Malha</td><td>10 mm</td><td>${esc(sapata.quantidade || "-")}</td><td>Ver corte</td></tr></table></div>
+              <div class="box"><h2>2. PILAR</h2>${svgPilar}<table><tr><th>Aco</th><th>Bitola</th><th>Quant.</th></tr><tr><td>Barras verticais</td><td>12,5 mm</td><td>6</td></tr><tr><td>Estribos</td><td>5 mm</td><td>C/15</td></tr></table></div>
+              <div class="box"><h2>3. BALDRAME</h2>${beamSvg(baldrame, "Baldrame", baldrame.secao || "20 x 30 cm", "2Ø10 sup. + 2Ø10 inf.", "Ø5 c/20")}<table><tr><th>Aco</th><th>Bitola</th><th>Comp.</th></tr><tr><td>Superior/inferior</td><td>10 mm</td><td>Continuo</td></tr><tr><td>Estribos</td><td>5 mm</td><td>C/20</td></tr></table></div>
+              <div class="box"><h2>4. CINTA INTERMEDIARIA</h2>${beamSvg(cintaInt, "Cinta intermediaria", cintaInt.secao || "14 x 20 cm", "4Ø8 continuo", "Ø5 c/20")}</div>
+              <div class="box"><h2>5. CINTA SUPERIOR</h2>${beamSvg(cintaSup, "Cinta superior", cintaSup.secao || "20 x 25 cm", "4Ø10 continuo", "Ø5 c/15")}</div>
+              <div class="box"><h2>6. QUANTITATIVO GERAL</h2><table><tr><th>Item</th><th>Secao</th><th>Qtd.</th><th>Concreto m3</th><th>Aco kg</th></tr>${rowsDetalhes}</table><table><tr><th>Total concreto</th><th>Total aco</th></tr><tr><td>${formatNumber(totalConcreto)} m3</td><td>${formatNumber(totalAco)} kg</td></tr></table></div>
+              <div class="box wide"><h2>7. OBSERVACOES</h2><div class="obs">${resultado.avisos.slice(0, 4).map(item => `<p>- ${esc(item)}</p>`).join("")}<p>- Cobrimento, transpasses, ancoragens e verificacoes estruturais devem ser revisados por profissional habilitado.</p><p>- Prancha preliminar para estudo/orcamento. Nao substitui projeto executivo.</p></div></div>
+              <div class="box"><h2>8. LEGENDA</h2><div class="legend"><p><span><i class="red"></i>Aco longitudinal</span></p><p><span><i class="green"></i>Estribos</span></p><p>Confianca: ${resultado.nivelConfianca}%</p><p>Fundacao: ${esc(resultado.tipoFundacao)}</p></div></div>
+            </main>
+            <footer><div>Fontes: ${(resultado.fontesTecnicas || []).slice(0, 4).map(ref => esc(ref.id)).join(", ")} | BMU ${esc(resultado.metadados.versaoBMU)}</div><div class="stamp">E-CORP SERVICOS LTDA<br>Prancha gerada automaticamente</div></footer>
+          </section>
+          <script>setTimeout(() => window.print(), 600);</script>
+          </body></html>`;
+        const win = window.open("", "_blank");
+        if (!win) {
+          alert("Permita pop-ups para abrir a prancha ilustrada.");
+          return;
+        }
+        win.document.open();
+        win.document.write(html);
+        win.document.close();
+      }
+
       function exportPlanoPdfFile(obra, stats, finance, rows) {
         const pages = [];
         let current = [];
@@ -2504,6 +2605,9 @@
       });
       byId("engenhariaExportarDetalhesPdf").addEventListener("click", () => {
         exportEngenhariaDetalhesPdf();
+      });
+      byId("engenhariaExportarPrancha").addEventListener("click", () => {
+        exportEngenhariaPranchaIlustrada();
       });
       byId("controleAlocados").addEventListener("change", e => {
         if (!e.target.matches("[data-alocado]")) return;
