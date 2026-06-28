@@ -1997,9 +1997,11 @@
           return drawLongitudinal();
         };
         const rowsDetalhes = detalhes.map(item => `<tr><td>${esc(item.elemento)}</td><td>${esc(item.secao)}</td><td>${esc(item.quantidade)}</td><td>${formatNumber(item.concretoM3)}</td><td>${formatNumber(item.acoKg)}</td></tr>`).join("");
+        const revisaoArmadura = `<table class="revision"><tr><th>Rev.</th><th>Data</th><th>Descricao</th><th>Status</th></tr><tr><td>R00</td><td>${esc(resultado.calculadoEm)}</td><td>Emissao automatica preliminar para estudo/orcamento</td><td>Validacao tecnica necessaria</td></tr></table>`;
         const titleBlockArmadura = `
           <table class="titleblock"><tr><th>Obra</th><td>${esc(obra.nome || "-")}</td><th>Cliente</th><td>${esc(obra.cliente || "-")}</td></tr>
-          <tr><th>Prancha</th><td>Armadura preliminar</td><th>Escala</th><td>Indicada / sem escala executiva</td></tr>
+          <tr><th>Prancha</th><td>ENG-ARM-001</td><th>Titulo</th><td>Armadura preliminar</td></tr>
+          <tr><th>Escala</th><td>Indicada / sem escala executiva</td><th>Status</th><td>PRELIMINAR - NAO EXECUTIVO</td></tr>
           <tr><th>Base tecnica</th><td>NBR 6118 / referencias cadastradas</td><th>Data</th><td>${esc(resultado.calculadoEm)}</td></tr></table>`;
         const detailSections = detalhes.map((item, index) => `
               <div class="box">
@@ -2029,6 +2031,7 @@
             footer { display:grid; grid-template-columns:2fr 1fr; border-top:1.5px solid #0b2248; font-size:12px; }
             footer div { padding:8px 10px; } .stamp { border-left:1px solid #0b2248; }
             .titleblock { margin:0; font-size:11px; } .titleblock th { width:90px; }
+            .revision { margin-top:6px; font-size:10px; }
             @media print { button { display:none; } .sheet { min-height: auto; } }
           </style></head><body>
           <button onclick="window.print()" style="position:fixed;right:14px;top:14px;padding:10px 14px;background:#2f7454;color:white;border:0;border-radius:6px;font-weight:700">Imprimir / salvar PDF</button>
@@ -2040,7 +2043,7 @@
               <div class="box wide"><h2>7. OBSERVACOES</h2><div class="obs">${resultado.avisos.slice(0, 4).map(item => `<p>- ${esc(item)}</p>`).join("")}<p>- Cobrimento, transpasses, ancoragens e verificacoes estruturais devem ser revisados por profissional habilitado.</p><p>- Prancha preliminar para estudo/orcamento. Nao substitui projeto executivo.</p></div></div>
               <div class="box"><h2>8. LEGENDA</h2><div class="legend"><p><span><i class="red"></i>Aco longitudinal</span></p><p><span><i class="green"></i>Estribos</span></p><p>Confianca: ${resultado.nivelConfianca}%</p><p>Fundacao: ${esc(resultado.tipoFundacao)}</p></div></div>
             </main>
-            <footer><div>${titleBlockArmadura}</div><div class="stamp">E-CORP SERVICOS LTDA<br>Fontes: ${(resultado.fontesTecnicas || []).slice(0, 3).map(ref => esc(ref.id)).join(", ")}<br>BMU ${esc(resultado.metadados.versaoBMU)}</div></footer>
+            <footer><div>${titleBlockArmadura}${revisaoArmadura}</div><div class="stamp">E-CORP SERVICOS LTDA<br>Prancha: ENG-ARM-001<br>Rev.: R00<br>Fontes: ${(resultado.fontesTecnicas || []).slice(0, 3).map(ref => esc(ref.id)).join(", ")}<br>BMU ${esc(resultado.metadados.versaoBMU)}</div></footer>
           </section>
           <script>setTimeout(() => window.print(), 600);<\/script>
           </body></html>`;
@@ -2150,9 +2153,11 @@
         const foundationRows = (resultado.detalhesArmadura || []).map(item => `<tr><td>${esc(item.elemento)}</td><td>${esc(item.secao)}</td><td>${esc(item.quantidade)}</td><td>${formatNumber(item.concretoM3)} m3</td></tr>`).join("");
         const scaleMeters = Math.max(1, Math.round(comprimento / 5));
         const scalePx = Math.max(70, Math.min(220, (scaleMeters / Math.max(comprimento, 0.01)) * w));
+        const revisaoLocacao = `<table class="revision"><tr><th>Rev.</th><th>Data</th><th>Descricao</th><th>Status</th></tr><tr><td>R00</td><td>${esc(resultado.calculadoEm)}</td><td>Emissao automatica preliminar para locacao e orcamento</td><td>Conferir projeto antes da execucao</td></tr></table>`;
         const titleBlockLocacao = `
           <table class="titleblock"><tr><th>Obra</th><td>${esc(obra.nome || "-")}</td><th>Cliente</th><td>${esc(obra.cliente || "-")}</td></tr>
-          <tr><th>Prancha</th><td>Locacao preliminar da fundacao</td><th>Escala</th><td>Grafica / A1</td></tr>
+          <tr><th>Prancha</th><td>ENG-LOC-001</td><th>Titulo</th><td>Locacao preliminar da fundacao</td></tr>
+          <tr><th>Escala</th><td>Grafica / A1</td><th>Status</th><td>PRELIMINAR - NAO EXECUTIVO</td></tr>
           <tr><th>Fundacao</th><td>${esc(byId("engenhariaFundacao").selectedOptions[0]?.textContent || tipo)}</td><th>Data</th><td>${esc(resultado.calculadoEm)}</td></tr></table>`;
         const foundationLines = tipo === "radier"
           ? `<rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="#dbeafe" opacity=".38" stroke="#0b2248" stroke-width="3"/>
@@ -2178,6 +2183,7 @@
             footer { display:grid; grid-template-columns:2fr 1fr; border-top:1.5px solid #0b2248; font-size:12px; }
             footer div { padding:8px 10px; } .stamp { border-left:1px solid #0b2248; }
             .titleblock { margin:0; font-size:11px; } .titleblock th { width:92px; }
+            .revision { margin-top:6px; font-size:10px; }
             @media print { button { display:none; } .sheet { min-height:auto; } }
           </style></head><body>
           <button onclick="window.print()" style="position:fixed;right:14px;top:14px;padding:10px 14px;background:#2f7454;color:white;border:0;border-radius:6px;font-weight:700">Imprimir / salvar PDF</button>
@@ -2226,7 +2232,7 @@
                 <div class="box note"><h2>OBSERVACOES</h2><p>- Prancha preliminar para locacao e orcamento. Conferir medidas no projeto arquitetonico/estrutural antes da execucao.</p><p>- Os eixos e apoios sao distribuidos de forma automatica para estudo. O posicionamento executivo precisa ser validado por profissional habilitado.</p>${dimensaoEstimada ? "<p>- Comprimento/largura foram estimados pela area e perimetro informados.</p>" : ""}</div>
               </aside>
             </main>
-            <footer><div>${titleBlockLocacao}</div><div class="stamp">E-CORP SERVICOS LTDA<br>Fontes: ${(resultado.fontesTecnicas || []).slice(0, 3).map(ref => esc(ref.id)).join(", ")}<br>BMU ${esc(resultado.metadados.versaoBMU)}</div></footer>
+            <footer><div>${titleBlockLocacao}${revisaoLocacao}</div><div class="stamp">E-CORP SERVICOS LTDA<br>Prancha: ENG-LOC-001<br>Rev.: R00<br>Fontes: ${(resultado.fontesTecnicas || []).slice(0, 3).map(ref => esc(ref.id)).join(", ")}<br>BMU ${esc(resultado.metadados.versaoBMU)}</div></footer>
           </section>
           <script>setTimeout(() => window.print(), 600);<\/script>
           </body></html>`;
