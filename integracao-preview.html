@@ -405,6 +405,18 @@
             </div>
             <div id="controlePlanoResumo" class="grid cols-3" style="margin-top:12px"></div>
             <div id="controlePlanoLista" style="margin-top:12px"></div>
+            <div class="card" style="margin-top:12px; padding:12px">
+              <strong>Informacoes do PDF</strong>
+              <p class="muted">Marque o que deve aparecer no relatorio exportado.</p>
+              <div class="grid cols-3">
+                <label><input id="pdfOptDadosObra" type="checkbox" checked /> Dados da obra e cliente</label>
+                <label><input id="pdfOptMedicoes" type="checkbox" checked /> Medicoes, avanco e status</label>
+                <label><input id="pdfOptValores" type="checkbox" checked /> Valores de mao de obra</label>
+                <label><input id="pdfOptPagamentos" type="checkbox" checked /> Pagamentos e saldo</label>
+                <label><input id="pdfOptBdi" type="checkbox" /> Mostrar BDI aplicado</label>
+                <label><input id="pdfOptReferencias" type="checkbox" checked /> Codigos e referencias ECB</label>
+              </div>
+            </div>
             <div class="actions" style="margin-top:12px">
               <button id="salvarPlanoEngenharia" type="button">Salvar medicoes do plano</button>
               <button id="exportarCronogramaPlanilha" type="button">Exportar planilha</button>
@@ -2261,7 +2273,19 @@
         win.document.close();
       }
 
-      function exportPlanoPdfFile(obra, stats, finance, rows) {
+      function getCronogramaPdfOptions() {
+        const checked = id => Boolean(byId(id)?.checked);
+        return {
+          dadosObra: checked("pdfOptDadosObra"),
+          medicoes: checked("pdfOptMedicoes"),
+          valores: checked("pdfOptValores"),
+          pagamentos: checked("pdfOptPagamentos"),
+          bdi: checked("pdfOptBdi"),
+          referencias: checked("pdfOptReferencias")
+        };
+      }
+
+      function exportPlanoPdfFile(obra, stats, finance, rows, options = getCronogramaPdfOptions()) {
         const pages = [];
         let current = [];
         const maxLines = 42;
@@ -2274,21 +2298,39 @@
         };
         push("E-CORP SERVICOS LTDA");
         push("PLANO DE ENGENHARIA ECB");
-        push(`Obra: ${obra?.nome || "-"} | Cliente: ${obra?.cliente || "-"} | Tipo: ${obra?.tipo || "-"}`);
+        if (options.dadosObra) {
+          push(`Obra: ${obra?.nome || "-"} | Cliente: ${obra?.cliente || "-"} | Tipo: ${obra?.tipo || "-"}`);
+          push(`Endereco: ${obra?.endereco || "-"} | Inicio previsto: ${obra?.inicio || "-"}`);
+        } else {
+          push(`Obra: ${obra?.nome || "-"}`);
+        }
         push("Etapas, produtividade, prazo previsto, medicao fisica e financeiro de mao de obra por atividade.");
         push("");
-        push(`Prazo planejado: ${stats.plannedDays} dias | Avanco tecnico: ${stats.average}% | Etapas concluidas: ${stats.completed}/${stats.total}`);
-        push(`MO prevista com BDI: ${money(finance.planned)} | MO medida com BDI: ${money(finance.measured)} | MO paga/saldo: ${money(finance.paid)} / ${money(finance.balance)}`);
-        push(`BDI padrao aplicado: ${defaultBdiPercent}% sobre o custo base da mao de obra.`);
+        push(`Prazo planejado: ${stats.plannedDays} dias | Etapas concluidas: ${stats.completed}/${stats.total}`);
+        if (options.medicoes) push(`Avanco tecnico: ${stats.average}%`);
+        if (options.valores) {
+          const totalLabel = options.bdi ? "MO prevista com BDI" : "MO prevista";
+          const measuredLabel = options.bdi ? "MO medida com BDI" : "MO medida";
+          const paymentText = options.pagamentos ? ` | MO paga/saldo: ${money(finance.paid)} / ${money(finance.balance)}` : "";
+          push(`${totalLabel}: ${money(finance.planned)} | ${measuredLabel}: ${money(finance.measured)}${paymentText}`);
+        } else if (options.pagamentos) {
+          push(`MO paga/saldo: ${money(finance.paid)} / ${money(finance.balance)}`);
+        }
+        if (options.bdi) push(`BDI padrao aplicado: ${defaultBdiPercent}% sobre o custo base da mao de obra.`);
         push("");
         rows.forEach(row => {
           const title = `${row.etapa}. ${row.atividade} (${row.codigo} - ${row.disciplina})`;
           splitPdfText(title, 112).forEach(push);
           push(`Qtd.: ${formatNumber(row.quantidade)} ${row.unidade} | Equipe/produtividade: ${row.equipe} - ${formatNumber(row.produtividadeDia)} ${row.unidade}/dia | Prazo: ${row.diasPrevistos} dia(s)`);
-          push(`Medido: ${formatNumber(row.medido)} ${row.unidade} | Avanco: ${formatNumber(row.percentual)}% | Status: ${row.status}`);
-          push(`MO unit. custo: ${money(row.valorUnitarioMo)} / ${row.unidade} | BDI: ${formatNumber(row.bdiPercent)}% | Unit. com BDI: ${money(row.valorUnitarioMoComBdi)} / ${row.unidade}`);
-          push(`Custo: ${money(row.valorMoCusto)} | Valor BDI: ${money(row.valorBdi)} | Total com BDI: ${money(row.valorMoPrevisto)} | Medido: ${money(row.valorMoMedido)}`);
-          push(`Pago: ${money(row.valorPago)} | Saldo: ${money(row.saldo)} | Referencia ECB ${row.codigo}`);
+          if (options.medicoes) push(`Medido: ${formatNumber(row.medido)} ${row.unidade} | Avanco: ${formatNumber(row.percentual)}% | Status: ${row.status}`);
+          if (options.valores && options.bdi) {
+            push(`MO unit. custo: ${money(row.valorUnitarioMo)} / ${row.unidade} | BDI: ${formatNumber(row.bdiPercent)}% | Unit. com BDI: ${money(row.valorUnitarioMoComBdi)} / ${row.unidade}`);
+            push(`Custo: ${money(row.valorMoCusto)} | Valor BDI: ${money(row.valorBdi)} | Total com BDI: ${money(row.valorMoPrevisto)} | Medido: ${money(row.valorMoMedido)}`);
+          } else if (options.valores) {
+            push(`MO unit.: ${money(row.valorUnitarioMoComBdi)} / ${row.unidade} | Total previsto: ${money(row.valorMoPrevisto)} | Medido: ${money(row.valorMoMedido)}`);
+          }
+          if (options.pagamentos) push(`Pago: ${money(row.valorPago)} | Saldo: ${money(row.saldo)}`);
+          if (options.referencias) push(`Referencia ECB ${row.codigo}`);
           push("");
         });
         if (current.length) pages.push(current);
@@ -2307,7 +2349,7 @@
         }
         const stats = planStats(getControle(obraId).engenhariaPlano || []);
         const finance = planFinancialStats(getControle(obraId).engenhariaPlano || []);
-        exportPlanoPdfFile(obra, stats, finance, rows);
+        exportPlanoPdfFile(obra, stats, finance, rows, getCronogramaPdfOptions());
       }
 
       function getClienteObraLogada() {
