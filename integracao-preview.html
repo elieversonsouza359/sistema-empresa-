@@ -259,7 +259,7 @@
             <p class="muted">Acesso restrito para cadastro de funcionarios, obras e visao geral dos registros.</p>
           </div>
           <div class="admin-status hidden" id="adminStatus">
-            <span class="pill">Logado como ADM</span>
+            <span class="pill">Logado como administrador</span>
             <button type="button" id="adminLogout">Sair</button>
           </div>
         </div>
@@ -269,8 +269,8 @@
             <h3>Acesso administrativo</h3>
             <p class="muted">Entre com usuario e senha para liberar os cadastros.</p>
           </div>
-          <label>Usuario<input id="adminUser" autocomplete="username" placeholder="ADM" required /></label>
-          <label>Senha<input id="adminPass" autocomplete="current-password" placeholder="ADM6347" required type="password" /></label>
+          <label>Usuario<input id="adminUser" autocomplete="username" placeholder="Digite seu usuario" required /></label>
+          <label>Senha<input id="adminPass" autocomplete="current-password" placeholder="Digite sua senha" required type="password" /></label>
           <button class="primary" type="submit">Entrar no admin</button>
           <p class="muted" id="adminLoginMsg"></p>
         </form>
@@ -580,7 +580,10 @@
         { key: "orcamentos", label: "Orcamentos", view: "orcamentos" },
         { key: "materiais", label: "Materiais", view: "materiais" }
       ];
-      const adminCredentials = { user: "ADM", pass: "ADM6347" };
+      const adminCredentialHashes = {
+        user: "bb3ad25ff3b4a181bdde0e6cd716966af6a8c04fbfd6f5ba6a7f80329657bbde",
+        pass: "dbd1f883d60e3c41d5da339dc4402854f02794c6601a874ea56ad4c7e3b7095f"
+      };
       const ECB_PRODUCTIVITY_MASTER = [
         { code: "ECB-010101", discipline: "Servicos Preliminares", name: "Mobilizacao inicial da obra", unit: "dia", qty: 1, crew: "1 pedreiro + 1 servente", productivity: 1, source: "Premissa E-Corp" },
         { code: "ECB-010201", discipline: "Servicos Preliminares", name: "Conferencia de projeto e marcacao de eixos", unit: "m2", qty: 150, crew: "1 pedreiro + 1 servente", productivity: 75, source: "Premissa E-Corp" },
@@ -685,6 +688,11 @@
       const formatNumber = value => Number(value || 0).toLocaleString("pt-BR", { maximumFractionDigits: 2 });
       const byId = id => document.getElementById(id);
       const escapeHtml = value => String(value || "").replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
+      async function sha256Text(value) {
+        const bytes = new TextEncoder().encode(value);
+        const hashBuffer = await crypto.subtle.digest("SHA-256", bytes);
+        return [...new Uint8Array(hashBuffer)].map(byte => byte.toString(16).padStart(2, "0")).join("");
+      }
       const tutorialState = { active: false, index: 0, steps: [] };
       const tutorialStepsByView = {
         operacao: [
@@ -697,7 +705,7 @@
           { selector: "#pontosLista", title: "Historico de ponto", text: "Aqui ficam os registros feitos, com obra, data, localizacao e status de sincronizacao." }
         ],
         admin: [
-          { selector: "#adminLoginForm", title: "Acesso do administrador", text: "Entre com o usuario ADM para liberar cadastros, obras e configuracoes internas." },
+          { selector: "#adminLoginForm", title: "Acesso do administrador", text: "Entre com o usuario e senha do administrador para liberar cadastros, obras e configuracoes internas." },
           { selector: "#adminPanel > .card:first-child", title: "Sub menu administrativo", text: "Use estes botoes para entrar em Operacao, Controle de Obra e Orcamentos. Essas areas ficam protegidas para ADM ou funcionario autorizado." },
           { selector: "#colabForm", title: "Cadastro de funcionario", text: "Cadastre nome, CPF, telefone, contrato, valor e funcao. O CPF vira o login do colaborador." },
           { selector: "#colabForm .checks", title: "Permissoes do funcionario", text: "Marque ate onde cada funcionario pode acessar o sistema. Registro de ponto fica liberado para todos os cadastrados." },
@@ -1965,11 +1973,13 @@
           renderAll();
         });
       });
-      byId("adminLoginForm").addEventListener("submit", e => {
+      byId("adminLoginForm").addEventListener("submit", async e => {
         e.preventDefault();
         const user = byId("adminUser").value.trim().toUpperCase();
         const pass = byId("adminPass").value;
-        if (user === adminCredentials.user && pass === adminCredentials.pass) {
+        const userHash = await sha256Text(user);
+        const passHash = await sha256Text(pass);
+        if (userHash === adminCredentialHashes.user && passHash === adminCredentialHashes.pass) {
           adminAutenticado = true;
           localStorage.setItem(adminSessionKey, "ok");
           byId("adminLoginMsg").textContent = "";
