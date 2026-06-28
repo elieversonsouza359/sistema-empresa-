@@ -2074,6 +2074,7 @@
         }
         comprimento = comprimento || Math.sqrt(area || 100);
         largura = largura || (area ? area / comprimento : comprimento * 0.6);
+        const isRadierLocacao = tipo === "radier";
         const detalheApoio = (resultado.detalhesArmadura || []).find(item => ["sapata", "broca", "pilar"].some(key => normalizeText(item.elemento).includes(key)));
         const qtdApoios = Math.max(4, Math.round(Number(String(detalheApoio?.quantidade || "").match(/\d+/)?.[0] || resultado.entradas.qtdSapatas || resultado.entradas.qtdBrocas || 4)));
         const chooseAxisGrid = count => {
@@ -2090,7 +2091,7 @@
           }
           return best;
         };
-        const axisGrid = tipo === "radier" ? { cols: 5, rows: 4 } : chooseAxisGrid(qtdApoios);
+        const axisGrid = isRadierLocacao ? { cols: 5, rows: 4 } : chooseAxisGrid(qtdApoios);
         const x0 = 110;
         const y0 = 115;
         const w = 850;
@@ -2109,10 +2110,16 @@
         }));
         const axisSlots = yAxes.flatMap((row, rowIndex) => xAxes.map((col, colIndex) => ({ x: col.x, y: row.y, rowIndex, colIndex })));
         const selectedSlotSet = new Set();
-        Array.from({ length: qtdApoios }, (_, i) => Math.round((axisSlots.length - 1) * (qtdApoios === 1 ? 0 : i / (qtdApoios - 1)))).forEach(index => selectedSlotSet.add(index));
-        for (let index = 0; selectedSlotSet.size < qtdApoios && index < axisSlots.length; index += 1) selectedSlotSet.add(index);
-        const selectedSlotIndexes = Array.from(selectedSlotSet).slice(0, qtdApoios).sort((a, b) => a - b);
+        if (isRadierLocacao) {
+          axisSlots.forEach((_, index) => selectedSlotSet.add(index));
+        } else {
+          Array.from({ length: qtdApoios }, (_, i) => Math.round((axisSlots.length - 1) * (qtdApoios === 1 ? 0 : i / (qtdApoios - 1)))).forEach(index => selectedSlotSet.add(index));
+          for (let index = 0; selectedSlotSet.size < qtdApoios && index < axisSlots.length; index += 1) selectedSlotSet.add(index);
+        }
+        const selectedSlotIndexes = Array.from(selectedSlotSet).slice(0, isRadierLocacao ? axisSlots.length : qtdApoios).sort((a, b) => a - b);
         const supports = selectedSlotIndexes.map(index => axisSlots[index]).filter(Boolean);
+        const locacaoPointLabel = isRadierLocacao ? "Pontos de referencia" : "Apoios";
+        const locacaoPositionTitle = isRadierLocacao ? "POSICAO DOS PONTOS DE REFERENCIA" : "POSICAO DOS APOIOS";
         const xAxisSvg = xAxes.map(axis => `<line x1="${axis.x}" y1="${y0 - 22}" x2="${axis.x}" y2="${y1 + 22}" stroke="#64748b" stroke-width="1.4" stroke-dasharray="8 8"/><text x="${axis.x - 7}" y="${y0 - 30}" font-size="18">${axis.label}</text>`).join("");
         const yAxisSvg = yAxes.map(axis => `<line x1="${x0 - 22}" y1="${axis.y}" x2="${x1 + 22}" y2="${axis.y}" stroke="#64748b" stroke-width="1.4" stroke-dasharray="8 8"/><text x="${x0 - 38}" y="${axis.y + 6}" font-size="18">${axis.label}</text>`).join("");
         const xSegmentSvg = xAxes.slice(0, -1).map((axis, i) => {
@@ -2212,9 +2219,9 @@
                 </svg>
               </div>
               <aside class="side">
-                <div class="box"><h2>DADOS DA LOCACAO</h2><table><tr><th>Item</th><th>Valor</th></tr><tr><td>Fundacao</td><td>${esc(byId("engenhariaFundacao").selectedOptions[0]?.textContent || tipo)}</td></tr><tr><td>Comprimento</td><td>${formatNumber(comprimento)} m</td></tr><tr><td>Largura</td><td>${formatNumber(largura)} m</td></tr><tr><td>Area</td><td>${formatNumber(area)} m2</td></tr><tr><td>Perimetro</td><td>${formatNumber(perimetro)} m</td></tr><tr><td>Apoios calculados</td><td>${qtdApoios} ponto(s)</td></tr><tr><td>Apoios desenhados</td><td>${supports.length} ponto(s)</td></tr><tr><td>Malha de eixos</td><td>${axisGrid.cols} x ${axisGrid.rows}</td></tr></table></div>
+                <div class="box"><h2>DADOS DA LOCACAO</h2><table><tr><th>Item</th><th>Valor</th></tr><tr><td>Fundacao</td><td>${esc(byId("engenhariaFundacao").selectedOptions[0]?.textContent || tipo)}</td></tr><tr><td>Comprimento</td><td>${formatNumber(comprimento)} m</td></tr><tr><td>Largura</td><td>${formatNumber(largura)} m</td></tr><tr><td>Area</td><td>${formatNumber(area)} m2</td></tr><tr><td>Perimetro</td><td>${formatNumber(perimetro)} m</td></tr><tr><td>${locacaoPointLabel} calculados</td><td>${isRadierLocacao ? axisSlots.length : qtdApoios} ponto(s)</td></tr><tr><td>${locacaoPointLabel} desenhados</td><td>${supports.length} ponto(s)</td></tr><tr><td>Malha de eixos</td><td>${axisGrid.cols} x ${axisGrid.rows}</td></tr></table></div>
                 <div class="box"><h2>COTAS ENTRE EIXOS</h2><table><tr><th>Eixo X</th><th>Distancia</th></tr>${xSpacingRows}</table><table style="margin-top:8px"><tr><th>Eixo Y</th><th>Distancia</th></tr>${ySpacingRows}</table></div>
-                <div class="box"><h2>POSICAO DOS APOIOS</h2><table><tr><th>Apoio</th><th>Eixo</th><th>X</th><th>Y</th></tr>${supportRows}</table></div>
+                <div class="box"><h2>${locacaoPositionTitle}</h2><table><tr><th>Ponto</th><th>Eixo</th><th>X</th><th>Y</th></tr>${supportRows}</table></div>
                 <div class="box"><h2>DIMENSOES DA FUNDACAO</h2><table><tr><th>Elemento</th><th>Secao</th><th>Qtd.</th><th>Concreto</th></tr>${foundationRows}</table></div>
                 <div class="box note"><h2>OBSERVACOES</h2><p>- Prancha preliminar para locacao e orcamento. Conferir medidas no projeto arquitetonico/estrutural antes da execucao.</p><p>- Os eixos e apoios sao distribuidos de forma automatica para estudo. O posicionamento executivo precisa ser validado por profissional habilitado.</p>${dimensaoEstimada ? "<p>- Comprimento/largura foram estimados pela area e perimetro informados.</p>" : ""}</div>
               </aside>
