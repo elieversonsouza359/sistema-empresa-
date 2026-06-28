@@ -2071,30 +2071,72 @@
         largura = largura || (area ? area / comprimento : comprimento * 0.6);
         const detalheApoio = (resultado.detalhesArmadura || []).find(item => ["sapata", "broca", "pilar"].some(key => normalizeText(item.elemento).includes(key)));
         const qtdApoios = Math.max(4, Math.round(Number(String(detalheApoio?.quantidade || "").match(/\d+/)?.[0] || resultado.entradas.qtdSapatas || resultado.entradas.qtdBrocas || 4)));
+        const chooseAxisGrid = count => {
+          let best = { cols: count, rows: 1, score: Infinity };
+          const targetRatio = comprimento / Math.max(largura, 0.01);
+          for (let rows = 2; rows <= Math.max(2, count); rows += 1) {
+            for (let cols = 2; cols <= Math.max(2, count); cols += 1) {
+              const slots = rows * cols;
+              if (slots < count) continue;
+              const ratio = (cols - 1) / Math.max(rows - 1, 1);
+              const score = ((slots - count) * 25) + Math.abs(ratio - targetRatio);
+              if (score < best.score) best = { cols, rows, score };
+            }
+          }
+          return best;
+        };
+        const axisGrid = tipo === "radier" ? { cols: 5, rows: 4 } : chooseAxisGrid(qtdApoios);
         const x0 = 110;
         const y0 = 115;
         const w = 850;
         const h = Math.max(260, Math.min(520, w * (largura / Math.max(comprimento, 0.01))));
         const y1 = y0 + h;
         const x1 = x0 + w;
-        const supportPointAt = distance => {
-          const perimeterPx = 2 * (w + h);
-          const d = ((distance % perimeterPx) + perimeterPx) % perimeterPx;
-          if (d <= w) return [x0 + d, y0];
-          if (d <= w + h) return [x1, y0 + (d - w)];
-          if (d <= 2 * w + h) return [x1 - (d - w - h), y1];
-          return [x0, y1 - (d - 2 * w - h)];
-        };
-        const supports = Array.from({ length: qtdApoios }, (_, i) => supportPointAt((2 * (w + h) * i) / qtdApoios));
-        const supportSvg = supports.map(([x, y], i) => {
-          if (tipo === "radier") return `<circle cx="${x}" cy="${y}" r="7" fill="#0b2248"/><text x="${x + 10}" y="${y - 8}">P${i + 1}</text>`;
-          if (tipo === "broca_baldrame") return `<circle cx="${x}" cy="${y}" r="10" fill="#fff" stroke="#0b2248" stroke-width="3"/><circle cx="${x}" cy="${y}" r="4" fill="#dc2626"/><text x="${x + 13}" y="${y - 8}">B${i + 1}</text>`;
-          return `<rect x="${x - 11}" y="${y - 11}" width="22" height="22" fill="#fff" stroke="#0b2248" stroke-width="3"/><circle cx="${x}" cy="${y}" r="4" fill="#dc2626"/><text x="${x + 14}" y="${y - 8}">S${i + 1}</text>`;
+        const xAxes = Array.from({ length: axisGrid.cols }, (_, i) => ({
+          label: String.fromCharCode(65 + i),
+          x: axisGrid.cols === 1 ? x0 + w / 2 : x0 + (w * i / (axisGrid.cols - 1)),
+          real: axisGrid.cols === 1 ? 0 : comprimento * i / (axisGrid.cols - 1)
+        }));
+        const yAxes = Array.from({ length: axisGrid.rows }, (_, i) => ({
+          label: String(i + 1),
+          y: axisGrid.rows === 1 ? y0 + h / 2 : y0 + (h * i / (axisGrid.rows - 1)),
+          real: axisGrid.rows === 1 ? 0 : largura * i / (axisGrid.rows - 1)
+        }));
+        const axisSlots = yAxes.flatMap((row, rowIndex) => xAxes.map((col, colIndex) => ({ x: col.x, y: row.y, rowIndex, colIndex })));
+        const selectedSlotSet = new Set();
+        Array.from({ length: qtdApoios }, (_, i) => Math.round((axisSlots.length - 1) * (qtdApoios === 1 ? 0 : i / (qtdApoios - 1)))).forEach(index => selectedSlotSet.add(index));
+        for (let index = 0; selectedSlotSet.size < qtdApoios && index < axisSlots.length; index += 1) selectedSlotSet.add(index);
+        const selectedSlotIndexes = Array.from(selectedSlotSet).slice(0, qtdApoios).sort((a, b) => a - b);
+        const supports = selectedSlotIndexes.map(index => axisSlots[index]).filter(Boolean);
+        const xAxisSvg = xAxes.map(axis => `<line x1="${axis.x}" y1="${y0 - 22}" x2="${axis.x}" y2="${y1 + 22}" stroke="#64748b" stroke-width="1.4" stroke-dasharray="8 8"/><text x="${axis.x - 7}" y="${y0 - 30}" font-size="18">${axis.label}</text>`).join("");
+        const yAxisSvg = yAxes.map(axis => `<line x1="${x0 - 22}" y1="${axis.y}" x2="${x1 + 22}" y2="${axis.y}" stroke="#64748b" stroke-width="1.4" stroke-dasharray="8 8"/><text x="${x0 - 38}" y="${axis.y + 6}" font-size="18">${axis.label}</text>`).join("");
+        const xSegmentSvg = xAxes.slice(0, -1).map((axis, i) => {
+          const next = xAxes[i + 1];
+          return `<line x1="${axis.x}" y1="${y0 - 75}" x2="${next.x}" y2="${y0 - 75}" stroke="#0b2248" stroke-width="1.5" marker-start="url(#arrow)" marker-end="url(#arrow)"/><text x="${(axis.x + next.x) / 2 - 25}" y="${y0 - 84}" font-size="16">${formatNumber(next.real - axis.real)} m</text>`;
+        }).join("");
+        const ySegmentSvg = yAxes.slice(0, -1).map((axis, i) => {
+          const next = yAxes[i + 1];
+          const mid = (axis.y + next.y) / 2;
+          return `<line x1="${x0 - 78}" y1="${axis.y}" x2="${x0 - 78}" y2="${next.y}" stroke="#0b2248" stroke-width="1.5" marker-start="url(#arrow)" marker-end="url(#arrow)"/><text x="${x0 - 112}" y="${mid + 7}" font-size="16" transform="rotate(-90 ${x0 - 112} ${mid + 7})">${formatNumber(next.real - axis.real)} m</text>`;
+        }).join("");
+        const supportSvg = supports.map((point, i) => {
+          const x = point.x;
+          const y = point.y;
+          const eixo = `${xAxes[point.colIndex]?.label || ""}${yAxes[point.rowIndex]?.label || ""}`;
+          if (tipo === "radier") return `<circle cx="${x}" cy="${y}" r="7" fill="#0b2248"/><text x="${x + 10}" y="${y - 8}">E${eixo}</text>`;
+          if (tipo === "broca_baldrame") return `<circle cx="${x}" cy="${y}" r="10" fill="#fff" stroke="#0b2248" stroke-width="3"/><circle cx="${x}" cy="${y}" r="4" fill="#dc2626"/><text x="${x + 13}" y="${y - 8}">B${i + 1}/${eixo}</text>`;
+          return `<rect x="${x - 11}" y="${y - 11}" width="22" height="22" fill="#fff" stroke="#0b2248" stroke-width="3"/><circle cx="${x}" cy="${y}" r="4" fill="#dc2626"/><text x="${x + 14}" y="${y - 8}">S${i + 1}/${eixo}</text>`;
+        }).join("");
+        const xSpacingRows = xAxes.slice(0, -1).map((axis, i) => `<tr><td>${axis.label}-${xAxes[i + 1].label}</td><td>${formatNumber(xAxes[i + 1].real - axis.real)} m</td></tr>`).join("");
+        const ySpacingRows = yAxes.slice(0, -1).map((axis, i) => `<tr><td>${axis.label}-${yAxes[i + 1].label}</td><td>${formatNumber(yAxes[i + 1].real - axis.real)} m</td></tr>`).join("");
+        const supportRows = supports.map((point, i) => {
+          const eixo = `${xAxes[point.colIndex]?.label || ""}${yAxes[point.rowIndex]?.label || ""}`;
+          const prefix = tipo === "broca_baldrame" ? "B" : tipo === "radier" ? "E" : "S";
+          return `<tr><td>${prefix}${i + 1}</td><td>${eixo}</td><td>${formatNumber(xAxes[point.colIndex]?.real || 0)} m</td><td>${formatNumber(yAxes[point.rowIndex]?.real || 0)} m</td></tr>`;
         }).join("");
         const foundationLines = tipo === "radier"
           ? `<rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="#dbeafe" opacity=".38" stroke="#0b2248" stroke-width="3"/>
-             ${Array.from({ length: 9 }, (_, i) => `<line x1="${x0 + i * w / 8}" y1="${y0}" x2="${x0 + i * w / 8}" y2="${y1}" stroke="#94a3b8" stroke-width="1"/>`).join("")}
-             ${Array.from({ length: 6 }, (_, i) => `<line x1="${x0}" y1="${y0 + i * h / 5}" x2="${x1}" y2="${y0 + i * h / 5}" stroke="#94a3b8" stroke-width="1"/>`).join("")}`
+             <rect x="${x0 + 18}" y="${y0 + 18}" width="${w - 36}" height="${h - 36}" fill="none" stroke="#047857" stroke-width="2" stroke-dasharray="10 8"/>`
           : `<rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="#fff" stroke="#0b2248" stroke-width="3"/>
              <rect x="${x0 + 22}" y="${y0 + 22}" width="${w - 44}" height="${h - 44}" fill="none" stroke="#047857" stroke-width="3" stroke-dasharray="14 10"/>`;
         const html = `<!doctype html><html><head><meta charset="utf-8"><title>Prancha de locacao</title>
@@ -2107,7 +2149,7 @@
             .sub { font-size:15px; color:#334155; margin-top:5px; }
             main { display:grid; grid-template-columns: 2.45fr .95fr; min-height:0; }
             .plan { border-right:1.5px solid #0b2248; padding:14px; }
-            .side { display:grid; grid-template-rows:auto auto 1fr; }
+            .side { display:grid; grid-template-rows:auto auto auto 1fr; }
             .box { border-bottom:1px solid #0b2248; padding:14px; }
             svg { width:100%; height:690px; display:block; }
             table { width:100%; border-collapse:collapse; font-size:13px; }
@@ -2127,18 +2169,22 @@
                     <marker id="arrow" markerWidth="8" markerHeight="8" refX="4" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 z" fill="#0b2248"/></marker>
                   </defs>
                   ${foundationLines}
+                  ${xAxisSvg}
+                  ${yAxisSvg}
+                  ${xSegmentSvg}
+                  ${ySegmentSvg}
                   <line x1="${x0}" y1="${y0 - 45}" x2="${x1}" y2="${y0 - 45}" stroke="#0b2248" stroke-width="2" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
                   <line x1="${x0 - 48}" y1="${y0}" x2="${x0 - 48}" y2="${y1}" stroke="#0b2248" stroke-width="2" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
                   <text x="${x0 + w / 2 - 65}" y="${y0 - 58}" font-size="24">${formatNumber(comprimento)} m</text>
                   <text x="${x0 - 94}" y="${y0 + h / 2}" font-size="24" transform="rotate(-90 ${x0 - 94} ${y0 + h / 2})">${formatNumber(largura)} m</text>
-                  ${["A", "B", "C", "D", "E"].map((axis, i) => `<line x1="${x0 + i * w / 4}" y1="${y0 - 18}" x2="${x0 + i * w / 4}" y2="${y1 + 18}" stroke="#64748b" stroke-width="1.4" stroke-dasharray="8 8"/><text x="${x0 + i * w / 4 - 7}" y="${y0 - 24}" font-size="18">${axis}</text>`).join("")}
-                  ${[1,2,3,4].map((axis, i) => `<line x1="${x0 - 18}" y1="${y0 + i * h / 3}" x2="${x1 + 18}" y2="${y0 + i * h / 3}" stroke="#64748b" stroke-width="1.4" stroke-dasharray="8 8"/><text x="${x0 - 34}" y="${y0 + i * h / 3 + 6}" font-size="18">${axis}</text>`).join("")}
                   ${supportSvg}
                   <text x="${x0}" y="${y1 + 58}" font-size="20">Perimetro considerado: ${formatNumber(perimetro)} m | Area considerada: ${formatNumber(area)} m2</text>
                 </svg>
               </div>
               <aside class="side">
-                <div class="box"><h2>DADOS DA LOCACAO</h2><table><tr><th>Item</th><th>Valor</th></tr><tr><td>Fundacao</td><td>${esc(byId("engenhariaFundacao").selectedOptions[0]?.textContent || tipo)}</td></tr><tr><td>Comprimento</td><td>${formatNumber(comprimento)} m</td></tr><tr><td>Largura</td><td>${formatNumber(largura)} m</td></tr><tr><td>Area</td><td>${formatNumber(area)} m2</td></tr><tr><td>Perimetro</td><td>${formatNumber(perimetro)} m</td></tr><tr><td>Apoios/eixos</td><td>${qtdApoios} ponto(s)</td></tr></table></div>
+                <div class="box"><h2>DADOS DA LOCACAO</h2><table><tr><th>Item</th><th>Valor</th></tr><tr><td>Fundacao</td><td>${esc(byId("engenhariaFundacao").selectedOptions[0]?.textContent || tipo)}</td></tr><tr><td>Comprimento</td><td>${formatNumber(comprimento)} m</td></tr><tr><td>Largura</td><td>${formatNumber(largura)} m</td></tr><tr><td>Area</td><td>${formatNumber(area)} m2</td></tr><tr><td>Perimetro</td><td>${formatNumber(perimetro)} m</td></tr><tr><td>Apoios calculados</td><td>${qtdApoios} ponto(s)</td></tr><tr><td>Apoios desenhados</td><td>${supports.length} ponto(s)</td></tr><tr><td>Malha de eixos</td><td>${axisGrid.cols} x ${axisGrid.rows}</td></tr></table></div>
+                <div class="box"><h2>COTAS ENTRE EIXOS</h2><table><tr><th>Eixo X</th><th>Distancia</th></tr>${xSpacingRows}</table><table style="margin-top:8px"><tr><th>Eixo Y</th><th>Distancia</th></tr>${ySpacingRows}</table></div>
+                <div class="box"><h2>POSICAO DOS APOIOS</h2><table><tr><th>Apoio</th><th>Eixo</th><th>X</th><th>Y</th></tr>${supportRows}</table></div>
                 <div class="box"><h2>REFERENCIAS DO CALCULO</h2><table><tr><th>Elemento</th><th>Secao</th><th>Qtd.</th></tr>${(resultado.detalhesArmadura || []).map(item => `<tr><td>${esc(item.elemento)}</td><td>${esc(item.secao)}</td><td>${esc(item.quantidade)}</td></tr>`).join("")}</table></div>
                 <div class="box note"><h2>OBSERVACOES</h2><p>- Prancha preliminar para locacao e orcamento. Conferir medidas no projeto arquitetonico/estrutural antes da execucao.</p><p>- Os eixos e apoios sao distribuidos de forma automatica para estudo. O posicionamento executivo precisa ser validado por profissional habilitado.</p>${dimensaoEstimada ? "<p>- Comprimento/largura foram estimados pela area e perimetro informados.</p>" : ""}</div>
               </aside>
