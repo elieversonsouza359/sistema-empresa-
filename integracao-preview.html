@@ -1997,6 +1997,10 @@
           return drawLongitudinal();
         };
         const rowsDetalhes = detalhes.map(item => `<tr><td>${esc(item.elemento)}</td><td>${esc(item.secao)}</td><td>${esc(item.quantidade)}</td><td>${formatNumber(item.concretoM3)}</td><td>${formatNumber(item.acoKg)}</td></tr>`).join("");
+        const titleBlockArmadura = `
+          <table class="titleblock"><tr><th>Obra</th><td>${esc(obra.nome || "-")}</td><th>Cliente</th><td>${esc(obra.cliente || "-")}</td></tr>
+          <tr><th>Prancha</th><td>Armadura preliminar</td><th>Escala</th><td>Indicada / sem escala executiva</td></tr>
+          <tr><th>Base tecnica</th><td>NBR 6118 / referencias cadastradas</td><th>Data</th><td>${esc(resultado.calculadoEm)}</td></tr></table>`;
         const detailSections = detalhes.map((item, index) => `
               <div class="box">
                 <h2>${index + 1}. ${esc(item.elemento).toUpperCase()}</h2>
@@ -2024,6 +2028,7 @@
             .red,.green { width:30px; height:2px; display:inline-block; } .red { background:#dc2626; } .green { background:#047857; }
             footer { display:grid; grid-template-columns:2fr 1fr; border-top:1.5px solid #0b2248; font-size:12px; }
             footer div { padding:8px 10px; } .stamp { border-left:1px solid #0b2248; }
+            .titleblock { margin:0; font-size:11px; } .titleblock th { width:90px; }
             @media print { button { display:none; } .sheet { min-height: auto; } }
           </style></head><body>
           <button onclick="window.print()" style="position:fixed;right:14px;top:14px;padding:10px 14px;background:#2f7454;color:white;border:0;border-radius:6px;font-weight:700">Imprimir / salvar PDF</button>
@@ -2035,7 +2040,7 @@
               <div class="box wide"><h2>7. OBSERVACOES</h2><div class="obs">${resultado.avisos.slice(0, 4).map(item => `<p>- ${esc(item)}</p>`).join("")}<p>- Cobrimento, transpasses, ancoragens e verificacoes estruturais devem ser revisados por profissional habilitado.</p><p>- Prancha preliminar para estudo/orcamento. Nao substitui projeto executivo.</p></div></div>
               <div class="box"><h2>8. LEGENDA</h2><div class="legend"><p><span><i class="red"></i>Aco longitudinal</span></p><p><span><i class="green"></i>Estribos</span></p><p>Confianca: ${resultado.nivelConfianca}%</p><p>Fundacao: ${esc(resultado.tipoFundacao)}</p></div></div>
             </main>
-            <footer><div>Fontes: ${(resultado.fontesTecnicas || []).slice(0, 4).map(ref => esc(ref.id)).join(", ")} | BMU ${esc(resultado.metadados.versaoBMU)}</div><div class="stamp">E-CORP SERVICOS LTDA<br>Prancha gerada automaticamente</div></footer>
+            <footer><div>${titleBlockArmadura}</div><div class="stamp">E-CORP SERVICOS LTDA<br>Fontes: ${(resultado.fontesTecnicas || []).slice(0, 3).map(ref => esc(ref.id)).join(", ")}<br>BMU ${esc(resultado.metadados.versaoBMU)}</div></footer>
           </section>
           <script>setTimeout(() => window.print(), 600);<\/script>
           </body></html>`;
@@ -2134,6 +2139,14 @@
           const prefix = tipo === "broca_baldrame" ? "B" : tipo === "radier" ? "E" : "S";
           return `<tr><td>${prefix}${i + 1}</td><td>${eixo}</td><td>${formatNumber(xAxes[point.colIndex]?.real || 0)} m</td><td>${formatNumber(yAxes[point.rowIndex]?.real || 0)} m</td></tr>`;
         }).join("");
+        const foundationDetails = (resultado.detalhesArmadura || []).map(item => `${item.elemento}: ${item.secao}`).join(" | ");
+        const foundationRows = (resultado.detalhesArmadura || []).map(item => `<tr><td>${esc(item.elemento)}</td><td>${esc(item.secao)}</td><td>${esc(item.quantidade)}</td><td>${formatNumber(item.concretoM3)} m3</td></tr>`).join("");
+        const scaleMeters = Math.max(1, Math.round(comprimento / 5));
+        const scalePx = Math.max(70, Math.min(220, (scaleMeters / Math.max(comprimento, 0.01)) * w));
+        const titleBlockLocacao = `
+          <table class="titleblock"><tr><th>Obra</th><td>${esc(obra.nome || "-")}</td><th>Cliente</th><td>${esc(obra.cliente || "-")}</td></tr>
+          <tr><th>Prancha</th><td>Locacao preliminar da fundacao</td><th>Escala</th><td>Grafica / A1</td></tr>
+          <tr><th>Fundacao</th><td>${esc(byId("engenhariaFundacao").selectedOptions[0]?.textContent || tipo)}</td><th>Data</th><td>${esc(resultado.calculadoEm)}</td></tr></table>`;
         const foundationLines = tipo === "radier"
           ? `<rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="#dbeafe" opacity=".38" stroke="#0b2248" stroke-width="3"/>
              <rect x="${x0 + 18}" y="${y0 + 18}" width="${w - 36}" height="${h - 36}" fill="none" stroke="#047857" stroke-width="2" stroke-dasharray="10 8"/>`
@@ -2157,6 +2170,7 @@
             .note { font-size:13px; line-height:1.45; color:#334155; }
             footer { display:grid; grid-template-columns:2fr 1fr; border-top:1.5px solid #0b2248; font-size:12px; }
             footer div { padding:8px 10px; } .stamp { border-left:1px solid #0b2248; }
+            .titleblock { margin:0; font-size:11px; } .titleblock th { width:92px; }
             @media print { button { display:none; } .sheet { min-height:auto; } }
           </style></head><body>
           <button onclick="window.print()" style="position:fixed;right:14px;top:14px;padding:10px 14px;background:#2f7454;color:white;border:0;border-radius:6px;font-weight:700">Imprimir / salvar PDF</button>
@@ -2179,17 +2193,33 @@
                   <text x="${x0 - 94}" y="${y0 + h / 2}" font-size="24" transform="rotate(-90 ${x0 - 94} ${y0 + h / 2})">${formatNumber(largura)} m</text>
                   ${supportSvg}
                   <text x="${x0}" y="${y1 + 58}" font-size="20">Perimetro considerado: ${formatNumber(perimetro)} m | Area considerada: ${formatNumber(area)} m2</text>
+                  <text x="${x0}" y="${y1 + 86}" font-size="16">${esc(foundationDetails)}</text>
+                  <g transform="translate(${x1 - 185}, ${y1 + 52})">
+                    <line x1="0" y1="0" x2="${scalePx}" y2="0" stroke="#0b2248" stroke-width="5"/>
+                    <line x1="0" y1="-8" x2="0" y2="8" stroke="#0b2248" stroke-width="2"/>
+                    <line x1="${scalePx}" y1="-8" x2="${scalePx}" y2="8" stroke="#0b2248" stroke-width="2"/>
+                    <text x="0" y="28" font-size="14">0</text><text x="${scalePx - 26}" y="28" font-size="14">${formatNumber(scaleMeters)} m</text>
+                  </g>
+                  <g transform="translate(${x1 - 70}, ${y0 + 20})">
+                    <path d="M25 0 L40 58 L25 46 L10 58 Z" fill="#0b2248"/>
+                    <text x="18" y="82" font-size="18">N</text>
+                  </g>
+                  <g transform="translate(${x0 + 10}, ${y1 + 108})" font-size="14">
+                    <rect x="0" y="-15" width="12" height="12" fill="#fff" stroke="#0b2248" stroke-width="2"/><circle cx="6" cy="-9" r="2.5" fill="#dc2626"/><text x="18" y="-5">Sapata/bloco</text>
+                    <circle cx="150" cy="-9" r="7" fill="#fff" stroke="#0b2248" stroke-width="2"/><circle cx="150" cy="-9" r="2.5" fill="#dc2626"/><text x="164" y="-5">Broca</text>
+                    <line x1="255" y1="-9" x2="305" y2="-9" stroke="#047857" stroke-width="3" stroke-dasharray="10 7"/><text x="314" y="-5">Baldrame/radier</text>
+                  </g>
                 </svg>
               </div>
               <aside class="side">
                 <div class="box"><h2>DADOS DA LOCACAO</h2><table><tr><th>Item</th><th>Valor</th></tr><tr><td>Fundacao</td><td>${esc(byId("engenhariaFundacao").selectedOptions[0]?.textContent || tipo)}</td></tr><tr><td>Comprimento</td><td>${formatNumber(comprimento)} m</td></tr><tr><td>Largura</td><td>${formatNumber(largura)} m</td></tr><tr><td>Area</td><td>${formatNumber(area)} m2</td></tr><tr><td>Perimetro</td><td>${formatNumber(perimetro)} m</td></tr><tr><td>Apoios calculados</td><td>${qtdApoios} ponto(s)</td></tr><tr><td>Apoios desenhados</td><td>${supports.length} ponto(s)</td></tr><tr><td>Malha de eixos</td><td>${axisGrid.cols} x ${axisGrid.rows}</td></tr></table></div>
                 <div class="box"><h2>COTAS ENTRE EIXOS</h2><table><tr><th>Eixo X</th><th>Distancia</th></tr>${xSpacingRows}</table><table style="margin-top:8px"><tr><th>Eixo Y</th><th>Distancia</th></tr>${ySpacingRows}</table></div>
                 <div class="box"><h2>POSICAO DOS APOIOS</h2><table><tr><th>Apoio</th><th>Eixo</th><th>X</th><th>Y</th></tr>${supportRows}</table></div>
-                <div class="box"><h2>REFERENCIAS DO CALCULO</h2><table><tr><th>Elemento</th><th>Secao</th><th>Qtd.</th></tr>${(resultado.detalhesArmadura || []).map(item => `<tr><td>${esc(item.elemento)}</td><td>${esc(item.secao)}</td><td>${esc(item.quantidade)}</td></tr>`).join("")}</table></div>
+                <div class="box"><h2>DIMENSOES DA FUNDACAO</h2><table><tr><th>Elemento</th><th>Secao</th><th>Qtd.</th><th>Concreto</th></tr>${foundationRows}</table></div>
                 <div class="box note"><h2>OBSERVACOES</h2><p>- Prancha preliminar para locacao e orcamento. Conferir medidas no projeto arquitetonico/estrutural antes da execucao.</p><p>- Os eixos e apoios sao distribuidos de forma automatica para estudo. O posicionamento executivo precisa ser validado por profissional habilitado.</p>${dimensaoEstimada ? "<p>- Comprimento/largura foram estimados pela area e perimetro informados.</p>" : ""}</div>
               </aside>
             </main>
-            <footer><div>Fontes: ${(resultado.fontesTecnicas || []).slice(0, 4).map(ref => esc(ref.id)).join(", ")} | BMU ${esc(resultado.metadados.versaoBMU)}</div><div class="stamp">E-CORP SERVICOS LTDA<br>Prancha de locacao automatica</div></footer>
+            <footer><div>${titleBlockLocacao}</div><div class="stamp">E-CORP SERVICOS LTDA<br>Fontes: ${(resultado.fontesTecnicas || []).slice(0, 3).map(ref => esc(ref.id)).join(", ")}<br>BMU ${esc(resultado.metadados.versaoBMU)}</div></footer>
           </section>
           <script>setTimeout(() => window.print(), 600);<\/script>
           </body></html>`;
