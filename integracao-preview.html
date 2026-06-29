@@ -1794,6 +1794,15 @@
         }[value || "ceramica"];
       }
 
+      function steelWeightKgM(diametroMm) {
+        return Math.pow(Number(diametroMm || 0), 2) / 162;
+      }
+
+      function lajeArmaduraItem(codigo, posicao, bitolaMm, espacamentoCm, quantidade, comprimentoM, observacao) {
+        const pesoKg = quantidade * comprimentoM * steelWeightKgM(bitolaMm);
+        return { codigo, posicao, bitolaMm, espacamentoCm, quantidade, comprimentoM, pesoKg, observacao };
+      }
+
       function lajePerfilTipo(tipo) {
         const perfis = {
           macica: { nome: "Laje macica moldada in loco", divisorBidirecional: 40, divisorUnidirecional: 32, minCm: 10, concretoFator: 1, formaFator: 1, acoKgM2: 9.5, escoramentoDias: 21, intereixoDefaultCm: 20, capaDefaultCm: 0, obs: "Boa para panos menores e geometrias simples; exige forma inferior completa." },
@@ -1869,7 +1878,7 @@
         const acoVao = area * Math.max(0, vaoPrincipal - 3) * 0.8;
         const acoCarga = area * Math.max(0, cargaTotal - 4) * 0.45;
         const acoParedes = area * (paredes === "alvenaria" ? 1.2 : paredes === "leves" ? 0.45 : 0);
-        const acoTotal = acoBase + acoVao + acoCarga + acoParedes;
+        const acoEstimado = acoBase + acoVao + acoCarga + acoParedes;
         const malhaX = engenhariaQtdPorEspacamento(comprimento || Math.sqrt(area || 0), 0.2);
         const malhaY = engenhariaQtdPorEspacamento(largura || Math.sqrt(area || 0), 0.2);
         const direcaoVigotasM = maior || vaoPrincipal || 0;
@@ -1878,6 +1887,29 @@
         const pecasEnchimento = possuiVigotas && enchimentoPerfil.blocoM > 0 ? Math.ceil(area / Math.max(0.01, intereixoM * enchimentoPerfil.blocoM)) : 0;
         const linhasTravamento = possuiVigotas && vaoPrincipal > 4 ? Math.max(1, Math.floor(vaoPrincipal / 2)) : 0;
         const contraFlechaCm = vaoPrincipal > 0 ? Math.max(0, Math.round((vaoPrincipal * 100 / 300) * 10) / 10) : 0;
+        const bitolaPrincipal = momentoReferencia > 18 || vaoPrincipal > 5.5 ? 10 : momentoReferencia > 10 || vaoPrincipal > 4 ? 8 : 6.3;
+        const bitolaDistribuicao = tipoLaje === "macica" ? 6.3 : 5;
+        const espacamentoPrincipalCm = cargaTotal > 6 || vaoPrincipal > 5 ? 15 : 20;
+        const espacamentoDistribuicaoCm = uso === "cobertura" || coberturaExposta === "sim" ? 20 : 25;
+        const comprimentoPrincipalM = Math.max(0.8, menor + 0.3);
+        const comprimentoDistribuicaoM = Math.max(0.8, maior + 0.3);
+        const qtdPrincipal = engenhariaQtdPorEspacamento(maior, espacamentoPrincipalCm / 100);
+        const qtdDistribuicao = engenhariaQtdPorEspacamento(menor, espacamentoDistribuicaoCm / 100);
+        const faixaNegativaM = Math.max(0.6, vaoPrincipal * 0.25);
+        const qtdNegativa = Math.max(0, engenhariaQtdPorEspacamento(maior, espacamentoPrincipalCm / 100) * 2);
+        const qtdBorda = Math.max(0, 4);
+        const qtdTravamentoArmadura = linhasTravamento > 0 ? linhasTravamento * Math.max(2, engenhariaQtdPorEspacamento(menor, 0.5)) : 0;
+        const qtdReforcoParede = paredes !== "nao" ? Math.max(2, engenhariaQtdPorEspacamento(maior, 0.25)) : 0;
+        const armaduraDetalhada = [
+          lajeArmaduraItem("N1", "Armadura principal inferior", bitolaPrincipal, espacamentoPrincipalCm, qtdPrincipal, comprimentoPrincipalM, `Direcao do vao menor (${formatNumber(menor)} m). Ancorar nos apoios/vigas de bordo.`),
+          lajeArmaduraItem("N2", "Armadura de distribuicao inferior", bitolaDistribuicao, espacamentoDistribuicaoCm, qtdDistribuicao, comprimentoDistribuicaoM, `Direcao transversal, amarrada a N1.`),
+          lajeArmaduraItem("N3", "Armadura negativa sobre apoios", bitolaPrincipal, espacamentoPrincipalCm, qtdNegativa, faixaNegativaM, `Faixa superior preliminar de ${formatNumber(faixaNegativaM)} m junto aos apoios. Conferir continuidade e momento negativo.`),
+          lajeArmaduraItem("N4", "Barras de bordo / contorno", Math.max(8, bitolaPrincipal), 0, qtdBorda, Math.max(0.8, 2 * (comprimento + largura) / qtdBorda), "Barras de contorno para amarracao de bordas e aberturas. Ajustar no projeto executivo."),
+          lajeArmaduraItem("N5", "Armadura das linhas de travamento", 6.3, 0, qtdTravamentoArmadura, Math.max(0.8, menor), linhasTravamento > 0 ? "Usar nas linhas LT indicadas em planta." : "Nao aplicada para o vao informado."),
+          lajeArmaduraItem("N6", "Reforco sob paredes", 8, 15, qtdReforcoParede, Math.max(0.8, menor), paredes !== "nao" ? "Faixa preliminar sob paredes informadas sobre a laje." : "Nao aplicado; paredes sobre a laje nao informadas.")
+        ].filter(item => item.quantidade > 0 && item.comprimentoM > 0);
+        const acoDetalhadoTotal = armaduraDetalhada.reduce((total, item) => total + item.pesoKg, 0);
+        const acoTotal = Math.max(acoEstimado, acoDetalhadoTotal);
         const quantitativos = [
           { item: "Area de laje", unidade: "m2", qtd: area },
           { item: "Concreto da laje com perda", unidade: "m3", qtd: concretoFinal },
@@ -1895,7 +1927,7 @@
         ].filter(item => item.qtd > 0);
         const materiais = [
           { item: "Concreto fck " + fck + " MPa", unidade: "m3", qtd: concretoFinal, obs: `Inclui ${formatNumber(perda)}% de perda.` },
-          { item: "Aco CA-50/CA-60 para laje", unidade: "kg", qtd: acoTotal, obs: `${comportamento}; estimativa por area, vao e carga.` },
+          { item: "Aco CA-50/CA-60 para laje", unidade: "kg", qtd: acoTotal, obs: `${comportamento}; maior valor entre estimativa global e detalhamento preliminar.` },
           { item: "Forma/escoramento", unidade: "m2", qtd: formaM2, obs: `${escoramentoDias} dia(s) previstos.` },
           { item: "Malha de referencia c/20 cm", unidade: "linhas", qtd: malhaX + malhaY, obs: `${malhaX} linhas em X e ${malhaY} linhas em Y.` },
           { item: "Vigotas trelicadas", unidade: "un", qtd: qtdVigotas, obs: `${formatNumber(direcaoVigotasM)} m por vigota; intereixo ${formatNumber(intereixoCm)} cm.` },
@@ -1926,7 +1958,7 @@
         const memoriaCalculo = [
           `BMU-LAJ-001 - Espessura preliminar: h = vao / ${divisor}; h >= ${formatNumber(perfil.minCm)} cm.`,
           `BMU-LAJ-002 - Concreto: capa ${formatNumber(concretoCapa)} m3 + nervuras ${formatNumber(concretoNervuras)} m3; com perda ${(1 + perda / 100).toFixed(3)} = ${formatNumber(concretoFinal)} m3.`,
-          `BMU-LAJ-003 - Aco estimado: base ${formatNumber(acoBase)} kg + vao ${formatNumber(acoVao)} kg + carga ${formatNumber(acoCarga)} kg + paredes ${formatNumber(acoParedes)} kg = ${formatNumber(acoTotal)} kg.`,
+          `BMU-LAJ-003 - Aco: estimativa global ${formatNumber(acoEstimado)} kg; detalhamento preliminar ${formatNumber(acoDetalhadoTotal)} kg; adotado ${formatNumber(acoTotal)} kg.`,
           `BMU-LAJ-004 - Momento ref.: q x L2 / ${comportamento === "unidirecional" ? "8" : "12"} = ${formatNumber(momentoReferencia)} kN.m/m.`,
           `BMU-LAJ-005 - Vigotas: largura de distribuicao ${formatNumber(larguraDistribuicaoM)} m / intereixo ${formatNumber(intereixoM)} m = ${formatNumber(qtdVigotas)} un.`,
           `BMU-LAJ-006 - Enchimento: area / (intereixo x modulo) = ${formatNumber(pecasEnchimento)} peca(s).`
@@ -1945,6 +1977,7 @@
           entradas: { area, comprimento, largura, maior, menor, vaoPrincipal, relacaoVaos, comportamento, espessuraCm, espessuraAutoCm, enchimento, intereixoCm, capaCm, cargaAcidental, revestimento, cargaParedes, cargaTotal, fck, perda, escoramentoDias, qtdVigotas, pecasEnchimento, linhasTravamento, contraFlechaCm, coberturaExposta },
           quantitativos,
           materiais,
+          armaduraDetalhada,
           fontesTecnicas,
           hipoteses,
           avisos,
@@ -1973,6 +2006,8 @@
           <h4>Hipoteses</h4><ul>${resultado.hipoteses.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
           <h4>Avisos</h4><ul>${resultado.avisos.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
           <h4>Memoria</h4><ul>${resultado.memoriaCalculo.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+          <h4>Detalhamento preliminar da armadura</h4>
+          <table><thead><tr><th>Marca</th><th>Posicao</th><th>Bitola</th><th>Esp.</th><th>Qtd.</th><th>Comp.</th><th>Peso</th></tr></thead><tbody>${(resultado.armaduraDetalhada || []).map(item => `<tr><td>${escapeHtml(item.codigo)}</td><td><strong>${escapeHtml(item.posicao)}</strong><br><span class="muted">${escapeHtml(item.observacao)}</span></td><td>${formatNumber(item.bitolaMm)} mm</td><td>${item.espacamentoCm ? `c/${formatNumber(item.espacamentoCm)} cm` : "-"}</td><td>${formatNumber(item.quantidade)} un</td><td>${formatNumber(item.comprimentoM)} m</td><td>${formatNumber(item.pesoKg)} kg</td></tr>`).join("")}</tbody></table>
           <h4>Materiais</h4><ul>${resultado.materiais.map(item => `<li>${escapeHtml(item.item)}: ${formatNumber(item.qtd)} ${escapeHtml(item.unidade)} - ${escapeHtml(item.obs)}</li>`).join("")}</ul>
           <h4>Fontes tecnicas vinculadas</h4><ul>${(resultado.fontesTecnicas || []).map(ref => `<li>${escapeHtml(ref.id)} - ${escapeHtml(ref.modulo)}: ${escapeHtml(ref.arquivo)}</li>`).join("") || "<li>Nenhuma fonte vinculada.</li>"}</ul>
           <p class="muted">BMU: ${escapeHtml(resultado.metadados.versaoBMU)} | Motor: ${escapeHtml(resultado.metadados.motor)} ${escapeHtml(resultado.metadados.versaoMotor)}</p>
@@ -2580,20 +2615,26 @@
         push("1. QUANTITATIVOS");
         r.quantitativos.forEach(item => push(`${item.item}: ${formatNumber(item.qtd)} ${item.unidade}`));
         push("");
-        push("2. MATERIAIS");
+        push("2. DETALHAMENTO PRELIMINAR DA ARMADURA");
+        (r.armaduraDetalhada || []).forEach(item => {
+          push(`${item.codigo} - ${item.posicao}: bitola ${formatNumber(item.bitolaMm)} mm | esp. ${item.espacamentoCm ? `c/${formatNumber(item.espacamentoCm)} cm` : "-"} | qtd. ${formatNumber(item.quantidade)} un | comp. ${formatNumber(item.comprimentoM)} m | peso ${formatNumber(item.pesoKg)} kg`);
+          splitPdfText(`Obs.: ${item.observacao}`, 112).forEach(push);
+        });
+        push("");
+        push("3. MATERIAIS");
         r.materiais.forEach(item => splitPdfText(`${item.item}: ${formatNumber(item.qtd)} ${item.unidade}. ${item.obs}`, 112).forEach(push));
         push("");
-        push("3. HIPOTESES E AVISOS");
+        push("4. HIPOTESES E AVISOS");
         r.hipoteses.forEach(item => splitPdfText(`Hipotese: ${item}`, 112).forEach(push));
         r.avisos.forEach(item => splitPdfText(`Aviso: ${item}`, 112).forEach(push));
         push("");
-        push("4. MEMORIA DE CALCULO");
+        push("5. MEMORIA DE CALCULO");
         r.memoriaCalculo.forEach(item => splitPdfText(item, 112).forEach(push));
         push("");
-        push("5. FONTES TECNICAS VINCULADAS");
+        push("6. FONTES TECNICAS VINCULADAS");
         (r.fontesTecnicas || []).forEach(ref => splitPdfText(`${ref.id} - ${ref.modulo}: ${ref.arquivo}`, 112).forEach(push));
         push("");
-        push("6. OBSERVACAO FINAL");
+        push("7. OBSERVACAO FINAL");
         push("Este documento e um pre-dimensionamento para estudo/orcamento. Nao substitui projeto estrutural executivo.");
         push("O dimensionamento final deve ser feito e assinado por profissional habilitado, com verificacoes normativas completas.");
         push(`BMU: ${r.metadados.versaoBMU} | Motor: ${r.metadados.motor} ${r.metadados.versaoMotor} | Data: ${r.calculadoEm}`);
@@ -2654,6 +2695,9 @@
         ].join("");
         const mainBarsSvg = mainBars.map(line => `<line x1="${line.x1}" y1="${line.y1}" x2="${line.x2}" y2="${line.y2}" stroke="#dc2626" stroke-width="2.5"/>`).join("");
         const distBarsSvg = distBars.map(line => `<line x1="${line.x1}" y1="${line.y1}" x2="${line.x2}" y2="${line.y2}" stroke="#047857" stroke-width="1.8" stroke-dasharray="8 6"/>`).join("");
+        const negativeBarsSvg = armaduraPrincipalHorizontal
+          ? [`<line x1="${x0 + 36}" y1="${y0 + 18}" x2="${x1 - 36}" y2="${y0 + 18}" stroke="#7c3aed" stroke-width="3"/>`, `<line x1="${x0 + 36}" y1="${y1 - 18}" x2="${x1 - 36}" y2="${y1 - 18}" stroke="#7c3aed" stroke-width="3"/>`, `<text x="${x0 + 42}" y="${y0 + 14}" font-size="14" fill="#5b21b6">N3 negativa apoio</text>`].join("")
+          : [`<line x1="${x0 + 18}" y1="${y0 + 36}" x2="${x0 + 18}" y2="${y1 - 36}" stroke="#7c3aed" stroke-width="3"/>`, `<line x1="${x1 - 18}" y1="${y0 + 36}" x2="${x1 - 18}" y2="${y1 - 36}" stroke="#7c3aed" stroke-width="3"/>`, `<text x="${x0 + 28}" y="${y0 + 28}" font-size="14" fill="#5b21b6">N3 negativa apoio</text>`].join("");
         const travamentoCount = Number(r.entradas.linhasTravamento || 0);
         const travamentoSvg = Array.from({ length: travamentoCount }, (_, i) => {
           const ratio = (i + 1) / (travamentoCount + 1);
@@ -2666,6 +2710,7 @@
           : `<line x1="${x1 + 65}" y1="${y1 - 80}" x2="${x1 + 65}" y2="${y0 + 80}" stroke="#dc2626" stroke-width="4" marker-end="url(#arrow)"/><text x="${x1 + 78}" y="${y0 + h / 2}" font-size="18">Armadura principal</text>`;
         const rowsQuant = r.quantitativos.map(item => `<tr><td>${esc(item.item)}</td><td>${formatNumber(item.qtd)}</td><td>${esc(item.unidade)}</td></tr>`).join("");
         const rowsMat = r.materiais.map(item => `<tr><td>${esc(item.item)}</td><td>${formatNumber(item.qtd)} ${esc(item.unidade)}</td><td>${esc(item.obs)}</td></tr>`).join("");
+        const rowsArm = (r.armaduraDetalhada || []).map(item => `<tr><td>${esc(item.codigo)}</td><td>${esc(item.posicao)}<br><span class="note">${esc(item.observacao)}</span></td><td>${formatNumber(item.bitolaMm)} mm</td><td>${item.espacamentoCm ? `c/${formatNumber(item.espacamentoCm)} cm` : "-"}</td><td>${formatNumber(item.quantidade)} un</td><td>${formatNumber(item.comprimentoM)} m</td><td>${formatNumber(item.pesoKg)} kg</td></tr>`).join("");
         const rowsRefs = (r.fontesTecnicas || []).slice(0, 6).map(ref => `<tr><td>${esc(ref.id)}</td><td>${esc(ref.modulo)}</td><td>${esc(ref.arquivo)}</td></tr>`).join("");
         const revisao = `<table class="revision"><tr><th>Rev.</th><th>Data</th><th>Descricao</th><th>Status</th></tr><tr><td>R00</td><td>${esc(r.calculadoEm)}</td><td>Emissao automatica preliminar de laje</td><td>Validacao tecnica necessaria</td></tr></table>`;
         const titleBlock = `<table class="titleblock"><tr><th>Obra</th><td>${esc(obra.nome || "-")}</td><th>Cliente</th><td>${esc(obra.cliente || "-")}</td></tr>
@@ -2682,7 +2727,7 @@
             .sub { color:#334155; font-size:15px; margin-top:5px; }
             main { display:grid; grid-template-columns:2.1fr 1fr; }
             .plan { border-right:1.5px solid #0b2248; padding:14px; }
-            .side { display:grid; grid-template-rows:auto auto auto 1fr; }
+            .side { display:grid; grid-template-rows:auto auto auto auto 1fr; }
             .box { border-bottom:1px solid #0b2248; padding:12px 14px; }
             svg { width:100%; height:650px; display:block; }
             table { width:100%; border-collapse:collapse; font-size:12px; margin-top:8px; }
@@ -2704,6 +2749,7 @@
                   ${apoioLines}
                   ${distBarsSvg}
                   ${mainBarsSvg}
+                  ${negativeBarsSvg}
                   ${travamentoSvg}
                   ${directionArrow}
                   <line x1="${x0}" y1="${y0 - 42}" x2="${x1}" y2="${y0 - 42}" stroke="#0b2248" stroke-width="2" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
@@ -2713,7 +2759,8 @@
                   <g transform="translate(${x0}, ${y1 + 118})" font-size="15">
                     <line x1="0" y1="0" x2="55" y2="0" stroke="#dc2626" stroke-width="3"/><text x="66" y="5">Armadura principal preliminar</text>
                     <line x1="310" y1="0" x2="365" y2="0" stroke="#047857" stroke-width="2" stroke-dasharray="8 6"/><text x="376" y="5">Armadura distribuicao/negativa</text>
-                    <line x1="650" y1="0" x2="705" y2="0" stroke="#2563eb" stroke-width="3" stroke-dasharray="14 8"/><text x="716" y="5">Linha de travamento</text>
+                    <line x1="650" y1="0" x2="705" y2="0" stroke="#7c3aed" stroke-width="3"/><text x="716" y="5">Armadura negativa N3</text>
+                    <line x1="0" y1="28" x2="55" y2="28" stroke="#2563eb" stroke-width="3" stroke-dasharray="14 8"/><text x="66" y="33">Linha de travamento LT</text>
                   </g>
                   <g transform="translate(${x1 + 95}, ${y0 + 55})" font-size="18">
                     <text x="0" y="0">CORTE A-A</text>
@@ -2727,6 +2774,7 @@
               </div>
               <aside class="side">
                 <div class="box"><h2>DADOS DA LAJE</h2><table><tr><th>Item</th><th>Valor</th></tr><tr><td>Tipo</td><td>${esc(r.nomeTipo)}</td></tr><tr><td>Area</td><td>${formatNumber(area)} m2</td></tr><tr><td>Maior vao</td><td>${formatNumber(maior)} m</td></tr><tr><td>Menor vao</td><td>${formatNumber(menor)} m</td></tr><tr><td>Espessura</td><td>${formatNumber(r.entradas.espessuraCm)} cm</td></tr><tr><td>Enchimento</td><td>${esc(r.entradas.enchimento || "-")}</td></tr><tr><td>Intereixo</td><td>${formatNumber(r.entradas.intereixoCm)} cm</td></tr><tr><td>Capa</td><td>${formatNumber(r.entradas.capaCm)} cm</td></tr><tr><td>Travamento</td><td>${formatNumber(r.entradas.linhasTravamento)} linha(s)</td></tr><tr><td>Contraflecha</td><td>${formatNumber(r.entradas.contraFlechaCm)} cm</td></tr><tr><td>Carga total</td><td>${formatNumber(r.entradas.cargaTotal)} kN/m2</td></tr></table></div>
+                <div class="box"><h2>ARMADURA</h2><table><tr><th>Marca</th><th>Posicao</th><th>Bitola</th><th>Esp.</th><th>Qtd.</th><th>Comp.</th><th>Peso</th></tr>${rowsArm}</table></div>
                 <div class="box"><h2>QUANTITATIVOS</h2><table><tr><th>Item</th><th>Qtd.</th><th>Un.</th></tr>${rowsQuant}</table></div>
                 <div class="box"><h2>MATERIAIS</h2><table><tr><th>Material</th><th>Qtd.</th><th>Obs.</th></tr>${rowsMat}</table></div>
                 <div class="box note"><h2>FONTES E OBSERVACOES</h2><table><tr><th>ID</th><th>Modulo</th><th>Arquivo</th></tr>${rowsRefs}</table>${r.avisos.slice(0, 4).map(item => `<p>- ${esc(item)}</p>`).join("")}<p>- Planta gerada automaticamente para estudo/orcamento. Nao usar como projeto executivo.</p></div>
