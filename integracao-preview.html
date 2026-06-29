@@ -150,6 +150,7 @@
           <button class="tab" data-view="ponto">Registro de Ponto</button>
           <button class="tab" data-view="cliente">Area do Cliente</button>
           <button class="tab" data-view="materiais">Materiais</button>
+          <button class="tab admin-top-link hidden" data-view="engenharia" type="button">Engenharia</button>
           <button type="button" id="tutorialBtn">Tutorial</button>
         </nav>
       </div>
@@ -884,7 +885,7 @@
         ],
         admin: [
           { selector: "#adminLoginForm", title: "Acesso do administrador", text: "Entre com o usuario e senha do administrador para liberar cadastros, obras e configuracoes internas." },
-          { selector: "#adminPanel > .card:first-child", title: "Sub menu administrativo", text: "Use estes botoes para entrar em Operacao, Controle de Obra e Orcamentos. Essas areas ficam protegidas para ADM ou funcionario autorizado." },
+          { selector: "#adminPanel > .card:first-child", title: "Sub menu administrativo", text: "Use estes botoes para entrar em Operacao, Controle de Obra, Engenharia e Orcamentos. Essas areas ficam protegidas para ADM ou funcionario autorizado." },
           { selector: "#colabForm", title: "Cadastro de funcionario", text: "Cadastre nome, CPF, telefone, contrato, valor e funcao. O CPF vira o login do colaborador." },
           { selector: "#colabForm .checks", title: "Permissoes do funcionario", text: "Marque ate onde cada funcionario pode acessar o sistema. Registro de ponto fica liberado para todos os cadastrados." },
           { selector: "#obraForm", title: "Cadastro da obra", text: "Informe cliente, metragem, fundacao, laje, equipe prevista e acesso do cliente. Esses dados alimentam controle, cronograma e area do cliente." },
@@ -3124,6 +3125,7 @@
         byId("adminLoginForm").classList.toggle("hidden", adminAutenticado);
         byId("adminPanel").classList.toggle("hidden", !adminAutenticado);
         byId("adminStatus").classList.toggle("hidden", !adminAutenticado);
+        document.querySelectorAll(".admin-top-link").forEach(button => button.classList.toggle("hidden", !adminAutenticado));
       }
 
       function renderColaboradorAccess() {
