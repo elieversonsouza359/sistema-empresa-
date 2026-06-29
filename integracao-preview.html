@@ -600,6 +600,49 @@
             <button id="engenhariaExportarPrancha" type="button">Gerar prancha ilustrada</button>
             <button id="engenhariaExportarLocacao" type="button">Gerar prancha de locacao</button>
           </form>
+          <div class="card grid" id="engenhariaLajesModulo">
+            <div class="toolbar">
+              <div>
+                <h3>Subcategoria: LAJES</h3>
+                <p class="muted">Pre-dimensionamento preliminar de lajes, quantitativos e prancha grafica para estudo/orcamento.</p>
+              </div>
+              <span class="pill">Novo modulo</span>
+            </div>
+            <form class="grid cols-3" id="engenhariaLajeForm">
+              <label>Tipo de laje<select id="lajeTipo"><option value="macica">Laje macica moldada in loco</option><option value="pre_moldada">Laje pre-moldada trelicada</option><option value="nervurada">Laje nervurada</option><option value="steel_deck">Steel deck / forma colaborante</option></select></label>
+              <label>Ambiente/uso<select id="lajeUso"><option value="residencial">Residencial</option><option value="cobertura">Cobertura</option><option value="garagem_leve">Garagem leve</option><option value="barracao">Barracao / uso misto</option></select></label>
+              <label>Area da laje (m2)<input id="lajeArea" min="0" step="0.01" type="number" /></label>
+              <label>Comprimento do pano (m)<input id="lajeComprimento" min="0" step="0.01" type="number" /></label>
+              <label>Largura do pano (m)<input id="lajeLargura" min="0" step="0.01" type="number" /></label>
+              <label>Vao livre principal (m)<input id="lajeVao" min="0" step="0.01" type="number" /></label>
+              <label>Espessura informada (cm)<input id="lajeEspessura" min="0" step="0.5" type="number" placeholder="Automatico se vazio" /></label>
+              <label>Carga acidental (kN/m2)<input id="lajeCargaAcidental" min="0" step="0.1" type="number" placeholder="Automatico por uso" /></label>
+              <label>Revestimento/contrapiso (kN/m2)<input id="lajeRevestimento" min="0" step="0.1" type="number" value="1" /></label>
+              <label>FCK concreto (MPa)<input id="lajeFck" min="20" step="5" type="number" value="25" /></label>
+              <label>Perda concreto (%)<input id="lajePerda" min="0" step="0.1" type="number" value="8" /></label>
+              <label>Escoramento previsto (dias)<input id="lajeEscoramentoDias" min="0" step="1" type="number" placeholder="Automatico" /></label>
+              <button class="primary" type="submit">Calcular laje</button>
+              <button id="lajeCarregarObra" type="button">Carregar area da obra</button>
+              <button id="lajeSalvarResultado" type="button">Salvar laje na obra</button>
+              <button id="lajeExportarPdf" type="button">Gerar PDF da laje</button>
+              <button id="lajeExportarPrancha" type="button">Gerar prancha da laje</button>
+            </form>
+            <div class="grid cols-3">
+              <div class="card stat"><span class="muted">Concreto laje</span><strong id="lajeConcretoTotal">0 m3</strong></div>
+              <div class="card stat"><span class="muted">Aco laje</span><strong id="lajeAcoTotal">0 kg</strong></div>
+              <div class="card stat"><span class="muted">Espessura sugerida</span><strong id="lajeEspessuraResumo">0 cm</strong></div>
+            </div>
+            <div class="grid cols-2">
+              <div>
+                <h3>Quantitativos de laje</h3>
+                <div id="lajeQuantitativos"><div class="empty">Preencha os dados da laje e clique em calcular.</div></div>
+              </div>
+              <div>
+                <h3>Memoria e avisos da laje</h3>
+                <div id="lajeMemoria"><div class="empty">A memoria tecnica da laje aparecera aqui.</div></div>
+              </div>
+            </div>
+          </div>
           <div class="card">
             <div class="toolbar">
               <div>
@@ -799,6 +842,7 @@
       let colaboradorLogadoId = localStorage.getItem(colaboradorSessionKey) || "";
       let clienteObraLogadaId = localStorage.getItem(clienteSessionKey) || "";
       let engenhariaResultadoAtual = null;
+      let engenhariaLajeResultadoAtual = null;
       let saveTimer = null;
       let syncInProgress = false;
       const persistLocal = () => localStorage.setItem(storeKey, JSON.stringify(db));
@@ -855,6 +899,7 @@
           { selector: "#engenhariaMateriais", title: "Materiais", text: "A lista resume o que comprar ou cotar: concreto, barras, estribos, tela e formas." },
           { selector: "#engenhariaExportarDetalhesPdf", title: "PDF de detalhes", text: "Gere um PDF textual com detalhes preliminares de ferragem, quantitativos, observacoes e fontes tecnicas vinculadas." },
           { selector: "#engenhariaExportarPrancha", title: "Prancha ilustrada", text: "Gere uma prancha visual com desenhos esquematicos de sapata, pilar, baldrame, cintas, quantitativos e legenda." },
+          { selector: "#engenhariaLajesModulo", title: "Subcategoria LAJES", text: "Aqui voce calcula panos de laje, espessura preliminar, concreto, aco, formas, escoramento e gera prancha grafica. Use como estudo/orcamento e valide com engenheiro." },
           { selector: "#engenhariaMemoria", title: "Memoria tecnica", text: "Confira hipoteses, avisos, confianca e formulas usadas. Pre-dimensionamento precisa validacao tecnica." }
         ],
         cliente: [
@@ -1717,6 +1762,152 @@
         `;
       }
 
+      function lajeCargaAcidentalPadrao(uso) {
+        if (uso === "cobertura") return 1.5;
+        if (uso === "garagem_leve") return 3;
+        if (uso === "barracao") return 4;
+        return 2;
+      }
+
+      function lajePerfilTipo(tipo) {
+        const perfis = {
+          macica: { nome: "Laje macica moldada in loco", divisorBidirecional: 40, divisorUnidirecional: 32, minCm: 10, concretoFator: 1, formaFator: 1, acoKgM2: 9.5, escoramentoDias: 21, obs: "Boa para panos menores e geometrias simples; exige forma inferior completa." },
+          pre_moldada: { nome: "Laje pre-moldada trelicada", divisorBidirecional: 36, divisorUnidirecional: 30, minCm: 12, concretoFator: 0.42, formaFator: 0.25, acoKgM2: 5.5, escoramentoDias: 14, obs: "Estimativa considera vigotas, enchimento e capa de concreto. Conferir fabricante e vao permitido." },
+          nervurada: { nome: "Laje nervurada", divisorBidirecional: 32, divisorUnidirecional: 28, minCm: 16, concretoFator: 0.55, formaFator: 0.7, acoKgM2: 8.5, escoramentoDias: 21, obs: "Indicada para vaos maiores; o sistema deve revisar nervuras, capa, puncoes e vigas de bordo." },
+          steel_deck: { nome: "Steel deck / forma colaborante", divisorBidirecional: 34, divisorUnidirecional: 30, minCm: 12, concretoFator: 0.62, formaFator: 0.08, acoKgM2: 6.5, escoramentoDias: 10, obs: "Preliminar para orcamento. Conferir catalogo da telha forma, conectores e apoios metalicos." }
+        };
+        return perfis[tipo] || perfis.macica;
+      }
+
+      function loadLajeFromObra() {
+        const obra = db.obras.find(o => o.id === byId("engenhariaObraSelect").value) || db.obras[0];
+        if (!obra) return;
+        const metrics = getObraMetragem(obra);
+        const saved = getControle(obra.id).engenhariaLaje?.entradas || {};
+        const area = Number(saved.area || obra.areaLaje || metrics.areaLaje || obra.areaSuperior || metrics.areaSuperior || obra.areaTerrea || metrics.areaTerrea || metrics.totalArea || 0);
+        byId("lajeArea").value = area || "";
+        byId("lajeComprimento").value = saved.comprimento || "";
+        byId("lajeLargura").value = saved.largura || "";
+        byId("lajeVao").value = saved.vaoPrincipal || "";
+        byId("lajeTipo").value = saved.tipoLaje || obra.lajeTipo || "pre_moldada";
+      }
+
+      function calcularEngenhariaLaje() {
+        const obra = db.obras.find(o => o.id === byId("engenhariaObraSelect").value) || {};
+        const tipoLaje = byId("lajeTipo").value;
+        const uso = byId("lajeUso").value;
+        const perfil = lajePerfilTipo(tipoLaje);
+        const comprimento = engenhariaNumber("lajeComprimento");
+        const largura = engenhariaNumber("lajeLargura");
+        const dimensoesInformadas = comprimento > 0 && largura > 0;
+        const area = dimensoesInformadas ? comprimento * largura : engenhariaNumber("lajeArea", Number(obra.areaLaje || obra.areaSuperior || obra.areaTerrea || 0));
+        const maior = dimensoesInformadas ? Math.max(comprimento, largura) : Math.sqrt(area || 0);
+        const menor = dimensoesInformadas ? Math.min(comprimento, largura) : (area ? Math.sqrt(area) : 0);
+        const vaoPrincipal = engenhariaNumber("lajeVao", menor || maior);
+        const relacaoVaos = menor ? maior / menor : 1;
+        const comportamento = relacaoVaos > 2 ? "unidirecional" : "bidirecional";
+        const divisor = comportamento === "unidirecional" ? perfil.divisorUnidirecional : perfil.divisorBidirecional;
+        const espessuraAutoCm = Math.max(perfil.minCm, Math.ceil((vaoPrincipal * 100 / divisor) * 2) / 2);
+        const espessuraCm = engenhariaNumber("lajeEspessura", espessuraAutoCm);
+        const espessuraM = espessuraCm / 100;
+        const cargaAcidental = engenhariaNumber("lajeCargaAcidental", lajeCargaAcidentalPadrao(uso));
+        const revestimento = engenhariaNumber("lajeRevestimento", 1);
+        const fck = engenhariaNumber("lajeFck", 25);
+        const perda = engenhariaNumber("lajePerda", 8);
+        const escoramentoDias = Math.round(engenhariaNumber("lajeEscoramentoDias", perfil.escoramentoDias));
+        const pesoProprio = 25 * espessuraM * perfil.concretoFator;
+        const cargaTotal = pesoProprio + cargaAcidental + revestimento;
+        const momentoReferencia = comportamento === "unidirecional" ? cargaTotal * Math.pow(vaoPrincipal, 2) / 8 : cargaTotal * Math.pow(vaoPrincipal, 2) / 12;
+        const concretoBruto = area * espessuraM * perfil.concretoFator;
+        const concretoFinal = concretoBruto * (1 + perda / 100);
+        const formaM2 = area * perfil.formaFator;
+        const acoBase = area * perfil.acoKgM2;
+        const acoVao = area * Math.max(0, vaoPrincipal - 3) * 0.8;
+        const acoCarga = area * Math.max(0, cargaTotal - 4) * 0.45;
+        const acoTotal = acoBase + acoVao + acoCarga;
+        const malhaX = engenhariaQtdPorEspacamento(comprimento || Math.sqrt(area || 0), 0.2);
+        const malhaY = engenhariaQtdPorEspacamento(largura || Math.sqrt(area || 0), 0.2);
+        const quantitativos = [
+          { item: "Area de laje", unidade: "m2", qtd: area },
+          { item: "Concreto da laje com perda", unidade: "m3", qtd: concretoFinal },
+          { item: "Aco estimado da laje", unidade: "kg", qtd: acoTotal },
+          { item: "Forma/escoramento inferior", unidade: "m2", qtd: formaM2 },
+          { item: "Escoramento previsto", unidade: "dias", qtd: escoramentoDias },
+          { item: "Carga total preliminar", unidade: "kN/m2", qtd: cargaTotal },
+          { item: "Momento de referencia", unidade: "kN.m/m", qtd: momentoReferencia }
+        ].filter(item => item.qtd > 0);
+        const materiais = [
+          { item: "Concreto fck " + fck + " MPa", unidade: "m3", qtd: concretoFinal, obs: `Inclui ${formatNumber(perda)}% de perda.` },
+          { item: "Aco CA-50/CA-60 para laje", unidade: "kg", qtd: acoTotal, obs: `${comportamento}; estimativa por area, vao e carga.` },
+          { item: "Forma/escoramento", unidade: "m2", qtd: formaM2, obs: `${escoramentoDias} dia(s) previstos.` },
+          { item: "Malha de referencia c/20 cm", unidade: "linhas", qtd: malhaX + malhaY, obs: `${malhaX} linhas em X e ${malhaY} linhas em Y.` }
+        ];
+        const hipoteses = [
+          `Tipo adotado: ${perfil.nome}.`,
+          dimensoesInformadas ? `Pano informado: ${formatNumber(comprimento)} m x ${formatNumber(largura)} m.` : "Dimensoes do pano nao informadas; area foi usada como referencia.",
+          `Comportamento preliminar: ${comportamento}; relacao entre vaos = ${formatNumber(relacaoVaos)}.`,
+          `Espessura sugerida: ${formatNumber(espessuraAutoCm)} cm; espessura usada: ${formatNumber(espessuraCm)} cm.`,
+          `Carga total preliminar = peso proprio ${formatNumber(pesoProprio)} + acidental ${formatNumber(cargaAcidental)} + revestimento ${formatNumber(revestimento)} = ${formatNumber(cargaTotal)} kN/m2.`
+        ];
+        const avisos = [
+          "Pre-dimensionamento para estudo/orcamento. Nao substitui projeto estrutural executivo.",
+          "Verificar flechas, fissuracao, armadura negativa, ancoragens, cobrimento, vigas de apoio, puncoes e compatibilizacao com arquitetura.",
+          "As cargas devem ser confirmadas conforme uso real, paredes sobre a laje, reservatorios, caixas d'agua e equipamentos.",
+          perfil.obs
+        ];
+        if (!dimensoesInformadas) avisos.push("Informe comprimento e largura do pano para melhorar direcao de armadura e prancha.");
+        if (vaoPrincipal > 6 && tipoLaje === "macica") avisos.push("Vao alto para laje macica preliminar. Avaliar nervurada, vigas intermediarias ou sistema industrializado.");
+        const memoriaCalculo = [
+          `BMU-LAJ-001 - Espessura preliminar: h = vao / ${divisor}; h >= ${formatNumber(perfil.minCm)} cm.`,
+          `BMU-LAJ-002 - Concreto: ${formatNumber(area)} m2 x ${formatNumber(espessuraM)} m x fator ${formatNumber(perfil.concretoFator)} x perda ${(1 + perda / 100).toFixed(3)} = ${formatNumber(concretoFinal)} m3.`,
+          `BMU-LAJ-003 - Aco estimado: base ${formatNumber(acoBase)} kg + vao ${formatNumber(acoVao)} kg + carga ${formatNumber(acoCarga)} kg = ${formatNumber(acoTotal)} kg.`,
+          `BMU-LAJ-004 - Momento ref.: q x L2 / ${comportamento === "unidirecional" ? "8" : "12"} = ${formatNumber(momentoReferencia)} kN.m/m.`
+        ];
+        return {
+          id: crypto.randomUUID(),
+          obraId: obra.id || "",
+          calculadoEm: new Date().toLocaleString("pt-BR"),
+          categoria: "LAJES",
+          tipoLaje,
+          nomeTipo: perfil.nome,
+          uso,
+          nivelConfianca: Math.max(35, Math.min(82, 45 + (dimensoesInformadas ? 15 : 0) + (byId("lajeEspessura").value ? 10 : 0) + (vaoPrincipal <= 5 ? 10 : 0))),
+          necessitaValidacao: true,
+          entradas: { area, comprimento, largura, maior, menor, vaoPrincipal, relacaoVaos, comportamento, espessuraCm, espessuraAutoCm, cargaAcidental, revestimento, cargaTotal, fck, perda, escoramentoDias },
+          quantitativos,
+          materiais,
+          hipoteses,
+          avisos,
+          memoriaCalculo,
+          metadados: { motor: "ecorp-lajes-core-web", versaoMotor: "0.1.0", versaoBMU: "BMU-LAJES-1.0.0" }
+        };
+      }
+
+      function renderEngenhariaLajeResultado(resultado) {
+        if (!resultado) {
+          byId("lajeConcretoTotal").textContent = "0 m3";
+          byId("lajeAcoTotal").textContent = "0 kg";
+          byId("lajeEspessuraResumo").textContent = "0 cm";
+          byId("lajeQuantitativos").innerHTML = `<div class="empty">Preencha os dados da laje e clique em calcular.</div>`;
+          byId("lajeMemoria").innerHTML = `<div class="empty">A memoria tecnica da laje aparecera aqui.</div>`;
+          return;
+        }
+        const concreto = resultado.quantitativos.find(item => item.item.includes("Concreto"))?.qtd || 0;
+        const aco = resultado.quantitativos.find(item => item.item.includes("Aco"))?.qtd || 0;
+        byId("lajeConcretoTotal").textContent = `${formatNumber(concreto)} m3`;
+        byId("lajeAcoTotal").textContent = `${formatNumber(aco)} kg`;
+        byId("lajeEspessuraResumo").textContent = `${formatNumber(resultado.entradas.espessuraCm)} cm`;
+        byId("lajeQuantitativos").innerHTML = `<table><thead><tr><th>Item</th><th>Qtd.</th><th>Un.</th></tr></thead><tbody>${resultado.quantitativos.map(item => `<tr><td>${escapeHtml(item.item)}</td><td>${formatNumber(item.qtd)}</td><td>${escapeHtml(item.unidade)}</td></tr>`).join("")}</tbody></table>`;
+        byId("lajeMemoria").innerHTML = `
+          <p><strong>${escapeHtml(resultado.nomeTipo)}</strong> | <strong>Confianca:</strong> ${resultado.nivelConfianca}% | <strong>Validacao:</strong> necessaria</p>
+          <h4>Hipoteses</h4><ul>${resultado.hipoteses.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+          <h4>Avisos</h4><ul>${resultado.avisos.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+          <h4>Memoria</h4><ul>${resultado.memoriaCalculo.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
+          <h4>Materiais</h4><ul>${resultado.materiais.map(item => `<li>${escapeHtml(item.item)}: ${formatNumber(item.qtd)} ${escapeHtml(item.unidade)} - ${escapeHtml(item.obs)}</li>`).join("")}</ul>
+          <p class="muted">BMU: ${escapeHtml(resultado.metadados.versaoBMU)} | Motor: ${escapeHtml(resultado.metadados.motor)} ${escapeHtml(resultado.metadados.versaoMotor)}</p>
+        `;
+      }
+
       function rebuildEngineeringPlanPreserving(obra, currentPlan = []) {
         const currentByCode = new Map((currentPlan || []).map(item => [item.code, item]));
         return buildEngineeringPlan(obra).map(item => {
@@ -2292,6 +2483,184 @@
         win.document.close();
       }
 
+      function exportEngenhariaLajePdf() {
+        engenhariaLajeResultadoAtual = calcularEngenhariaLaje();
+        renderEngenhariaLajeResultado(engenhariaLajeResultadoAtual);
+        const obra = db.obras.find(o => o.id === byId("engenhariaObraSelect").value) || {};
+        const r = engenhariaLajeResultadoAtual;
+        const pages = [];
+        let current = [];
+        const maxLines = 42;
+        const push = line => {
+          if (current.length >= maxLines) {
+            pages.push(current);
+            current = [];
+          }
+          current.push(line);
+        };
+        push("E-CORP SERVICOS LTDA");
+        push("SUBCATEGORIA ENGENHARIA - LAJES");
+        push(`Obra: ${obra.nome || "-"} | Cliente: ${obra.cliente || "-"} | Tipo da laje: ${r.nomeTipo}`);
+        push(`Area: ${formatNumber(r.entradas.area)} m2 | Pano: ${formatNumber(r.entradas.comprimento)} m x ${formatNumber(r.entradas.largura)} m | Vao principal: ${formatNumber(r.entradas.vaoPrincipal)} m`);
+        push(`Espessura usada: ${formatNumber(r.entradas.espessuraCm)} cm | Comportamento: ${r.entradas.comportamento} | Confianca: ${r.nivelConfianca}%`);
+        push("");
+        push("1. QUANTITATIVOS");
+        r.quantitativos.forEach(item => push(`${item.item}: ${formatNumber(item.qtd)} ${item.unidade}`));
+        push("");
+        push("2. MATERIAIS");
+        r.materiais.forEach(item => splitPdfText(`${item.item}: ${formatNumber(item.qtd)} ${item.unidade}. ${item.obs}`, 112).forEach(push));
+        push("");
+        push("3. HIPOTESES E AVISOS");
+        r.hipoteses.forEach(item => splitPdfText(`Hipotese: ${item}`, 112).forEach(push));
+        r.avisos.forEach(item => splitPdfText(`Aviso: ${item}`, 112).forEach(push));
+        push("");
+        push("4. MEMORIA DE CALCULO");
+        r.memoriaCalculo.forEach(item => splitPdfText(item, 112).forEach(push));
+        push("");
+        push("5. OBSERVACAO FINAL");
+        push("Este documento e um pre-dimensionamento para estudo/orcamento. Nao substitui projeto estrutural executivo.");
+        push("O dimensionamento final deve ser feito e assinado por profissional habilitado, com verificacoes normativas completas.");
+        push(`BMU: ${r.metadados.versaoBMU} | Motor: ${r.metadados.motor} ${r.metadados.versaoMotor} | Data: ${r.calculadoEm}`);
+        if (current.length) pages.push(current);
+        const filename = `lajes-${normalizeText(obra.nome || "obra").replace(/\s+/g, "-")}.pdf`;
+        downloadBlob(buildSimplePdf(pages), filename);
+      }
+
+      function exportEngenhariaLajePrancha() {
+        engenhariaLajeResultadoAtual = calcularEngenhariaLaje();
+        renderEngenhariaLajeResultado(engenhariaLajeResultadoAtual);
+        const obra = db.obras.find(o => o.id === byId("engenhariaObraSelect").value) || {};
+        const r = engenhariaLajeResultadoAtual;
+        const esc = value => escapeHtml(value);
+        let comprimento = Number(r.entradas.comprimento || 0);
+        let largura = Number(r.entradas.largura || 0);
+        const area = Number(r.entradas.area || 0);
+        if (!(comprimento > 0 && largura > 0)) {
+          comprimento = Math.sqrt(area || 100);
+          largura = area ? area / comprimento : 6;
+        }
+        const maior = Math.max(comprimento, largura);
+        const menor = Math.min(comprimento, largura);
+        const x0 = 95;
+        const y0 = 95;
+        const w = 720;
+        const h = Math.max(260, Math.min(500, w * (largura / Math.max(comprimento, 0.01))));
+        const x1 = x0 + w;
+        const y1 = y0 + h;
+        const armaduraPrincipalHorizontal = comprimento >= largura;
+        const mainBars = Array.from({ length: 15 }, (_, i) => armaduraPrincipalHorizontal ? {
+          x1: x0 + 26,
+          y1: y0 + 28 + i * ((h - 56) / 14),
+          x2: x1 - 26,
+          y2: y0 + 28 + i * ((h - 56) / 14)
+        } : {
+          x1: x0 + 28 + i * ((w - 56) / 14),
+          y1: y0 + 26,
+          x2: x0 + 28 + i * ((w - 56) / 14),
+          y2: y1 - 26
+        });
+        const distBars = Array.from({ length: 10 }, (_, i) => armaduraPrincipalHorizontal ? {
+          x1: x0 + 38 + i * ((w - 76) / 9),
+          y1: y0 + 35,
+          x2: x0 + 38 + i * ((w - 76) / 9),
+          y2: y1 - 35
+        } : {
+          x1: x0 + 35,
+          y1: y0 + 38 + i * ((h - 76) / 9),
+          x2: x1 - 35,
+          y2: y0 + 38 + i * ((h - 76) / 9)
+        });
+        const apoioLines = [
+          `<line x1="${x0}" y1="${y0}" x2="${x1}" y2="${y0}" stroke="#0b2248" stroke-width="8"/>`,
+          `<line x1="${x0}" y1="${y1}" x2="${x1}" y2="${y1}" stroke="#0b2248" stroke-width="8"/>`,
+          `<line x1="${x0}" y1="${y0}" x2="${x0}" y2="${y1}" stroke="#0b2248" stroke-width="8"/>`,
+          `<line x1="${x1}" y1="${y0}" x2="${x1}" y2="${y1}" stroke="#0b2248" stroke-width="8"/>`
+        ].join("");
+        const mainBarsSvg = mainBars.map(line => `<line x1="${line.x1}" y1="${line.y1}" x2="${line.x2}" y2="${line.y2}" stroke="#dc2626" stroke-width="2.5"/>`).join("");
+        const distBarsSvg = distBars.map(line => `<line x1="${line.x1}" y1="${line.y1}" x2="${line.x2}" y2="${line.y2}" stroke="#047857" stroke-width="1.8" stroke-dasharray="8 6"/>`).join("");
+        const directionArrow = armaduraPrincipalHorizontal
+          ? `<line x1="${x0 + 90}" y1="${y1 + 70}" x2="${x1 - 90}" y2="${y1 + 70}" stroke="#dc2626" stroke-width="4" marker-end="url(#arrow)"/><text x="${x0 + w / 2 - 80}" y="${y1 + 96}" font-size="18">Armadura principal</text>`
+          : `<line x1="${x1 + 65}" y1="${y1 - 80}" x2="${x1 + 65}" y2="${y0 + 80}" stroke="#dc2626" stroke-width="4" marker-end="url(#arrow)"/><text x="${x1 + 78}" y="${y0 + h / 2}" font-size="18">Armadura principal</text>`;
+        const rowsQuant = r.quantitativos.map(item => `<tr><td>${esc(item.item)}</td><td>${formatNumber(item.qtd)}</td><td>${esc(item.unidade)}</td></tr>`).join("");
+        const rowsMat = r.materiais.map(item => `<tr><td>${esc(item.item)}</td><td>${formatNumber(item.qtd)} ${esc(item.unidade)}</td><td>${esc(item.obs)}</td></tr>`).join("");
+        const revisao = `<table class="revision"><tr><th>Rev.</th><th>Data</th><th>Descricao</th><th>Status</th></tr><tr><td>R00</td><td>${esc(r.calculadoEm)}</td><td>Emissao automatica preliminar de laje</td><td>Validacao tecnica necessaria</td></tr></table>`;
+        const titleBlock = `<table class="titleblock"><tr><th>Obra</th><td>${esc(obra.nome || "-")}</td><th>Cliente</th><td>${esc(obra.cliente || "-")}</td></tr>
+          <tr><th>Prancha</th><td>ENG-LAJ-001</td><th>Titulo</th><td>Pre-dimensionamento de laje</td></tr>
+          <tr><th>Tipo</th><td>${esc(r.nomeTipo)}</td><th>Status</th><td>PRELIMINAR - NAO EXECUTIVO</td></tr>
+          <tr><th>Escala</th><td>Grafica / A1</td><th>Data</th><td>${esc(r.calculadoEm)}</td></tr></table>`;
+        const html = `<!doctype html><html><head><meta charset="utf-8"><title>Prancha de laje</title>
+          <style>
+            @page { size: A1 landscape; margin: 10mm; }
+            * { box-sizing:border-box; } body { margin:0; font-family:Arial, sans-serif; color:#061733; }
+            .sheet { border:2px solid #0b2248; min-height:calc(100vh - 20mm); display:grid; grid-template-rows:auto 1fr auto; background:white; }
+            header { border-bottom:1.5px solid #0b2248; padding:10px 16px; text-align:center; }
+            h1 { font-size:34px; margin:0; } h2 { color:#0b2248; font-size:18px; margin:0 0 8px; }
+            .sub { color:#334155; font-size:15px; margin-top:5px; }
+            main { display:grid; grid-template-columns:2.1fr 1fr; }
+            .plan { border-right:1.5px solid #0b2248; padding:14px; }
+            .side { display:grid; grid-template-rows:auto auto auto 1fr; }
+            .box { border-bottom:1px solid #0b2248; padding:12px 14px; }
+            svg { width:100%; height:650px; display:block; }
+            table { width:100%; border-collapse:collapse; font-size:12px; margin-top:8px; }
+            th,td { border:1px solid #94a3b8; padding:6px; text-align:left; vertical-align:top; } th { background:#eef2f7; color:#0b2248; }
+            .note { font-size:13px; line-height:1.42; color:#334155; }
+            footer { display:grid; grid-template-columns:2fr 1fr; border-top:1.5px solid #0b2248; font-size:12px; }
+            footer div { padding:8px 10px; } .stamp { border-left:1px solid #0b2248; }
+            .titleblock { margin:0; font-size:11px; } .revision { margin-top:6px; font-size:10px; }
+            @media print { button { display:none; } .sheet { min-height:auto; } }
+          </style></head><body>
+          <button onclick="window.print()" style="position:fixed;right:14px;top:14px;padding:10px 14px;background:#2f7454;color:white;border:0;border-radius:6px;font-weight:700">Imprimir / salvar PDF</button>
+          <section class="sheet">
+            <header><h1>${esc((obra.nome || "Obra").toUpperCase())} - LAJES</h1><div class="sub">Planta grafica preliminar de laje | ${esc(r.nomeTipo)} | ${esc(r.calculadoEm)}</div></header>
+            <main>
+              <div class="plan">
+                <svg viewBox="0 0 1040 720" aria-label="Planta grafica de laje">
+                  <defs><marker id="arrow" markerWidth="9" markerHeight="9" refX="4" refY="4" orient="auto"><path d="M0,0 L9,4.5 L0,9 z" fill="#dc2626"/></marker></defs>
+                  <rect x="${x0}" y="${y0}" width="${w}" height="${h}" fill="#f8fafc" stroke="#0b2248" stroke-width="2"/>
+                  ${apoioLines}
+                  ${distBarsSvg}
+                  ${mainBarsSvg}
+                  ${directionArrow}
+                  <line x1="${x0}" y1="${y0 - 42}" x2="${x1}" y2="${y0 - 42}" stroke="#0b2248" stroke-width="2" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+                  <line x1="${x0 - 44}" y1="${y0}" x2="${x0 - 44}" y2="${y1}" stroke="#0b2248" stroke-width="2" marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+                  <text x="${x0 + w / 2 - 60}" y="${y0 - 54}" font-size="22">${formatNumber(comprimento)} m</text>
+                  <text x="${x0 - 86}" y="${y0 + h / 2}" font-size="22" transform="rotate(-90 ${x0 - 86} ${y0 + h / 2})">${formatNumber(largura)} m</text>
+                  <g transform="translate(${x0}, ${y1 + 118})" font-size="15">
+                    <line x1="0" y1="0" x2="55" y2="0" stroke="#dc2626" stroke-width="3"/><text x="66" y="5">Armadura principal preliminar</text>
+                    <line x1="310" y1="0" x2="365" y2="0" stroke="#047857" stroke-width="2" stroke-dasharray="8 6"/><text x="376" y="5">Armadura distribuicao/negativa</text>
+                    <rect x="650" y="-14" width="46" height="24" fill="#f8fafc" stroke="#0b2248" stroke-width="4"/><text x="707" y="5">Apoios/vigas de bordo</text>
+                  </g>
+                  <g transform="translate(${x1 + 95}, ${y0 + 55})" font-size="18">
+                    <text x="0" y="0">CORTE A-A</text>
+                    <rect x="0" y="20" width="150" height="${Math.max(22, r.entradas.espessuraCm * 2.2)}" fill="#e2e8f0" stroke="#0b2248" stroke-width="2"/>
+                    <line x1="12" y1="${Math.max(34, r.entradas.espessuraCm * 2.2 + 8)}" x2="138" y2="${Math.max(34, r.entradas.espessuraCm * 2.2 + 8)}" stroke="#dc2626" stroke-width="3"/>
+                    <text x="0" y="${Math.max(76, r.entradas.espessuraCm * 2.2 + 50)}">h = ${formatNumber(r.entradas.espessuraCm)} cm</text>
+                    <text x="0" y="${Math.max(104, r.entradas.espessuraCm * 2.2 + 78)}">Vao = ${formatNumber(r.entradas.vaoPrincipal)} m</text>
+                    <text x="0" y="${Math.max(132, r.entradas.espessuraCm * 2.2 + 106)}">${esc(r.entradas.comportamento)}</text>
+                  </g>
+                </svg>
+              </div>
+              <aside class="side">
+                <div class="box"><h2>DADOS DA LAJE</h2><table><tr><th>Item</th><th>Valor</th></tr><tr><td>Tipo</td><td>${esc(r.nomeTipo)}</td></tr><tr><td>Area</td><td>${formatNumber(area)} m2</td></tr><tr><td>Maior vao</td><td>${formatNumber(maior)} m</td></tr><tr><td>Menor vao</td><td>${formatNumber(menor)} m</td></tr><tr><td>Espessura</td><td>${formatNumber(r.entradas.espessuraCm)} cm</td></tr><tr><td>Carga total</td><td>${formatNumber(r.entradas.cargaTotal)} kN/m2</td></tr></table></div>
+                <div class="box"><h2>QUANTITATIVOS</h2><table><tr><th>Item</th><th>Qtd.</th><th>Un.</th></tr>${rowsQuant}</table></div>
+                <div class="box"><h2>MATERIAIS</h2><table><tr><th>Material</th><th>Qtd.</th><th>Obs.</th></tr>${rowsMat}</table></div>
+                <div class="box note"><h2>OBSERVACOES</h2>${r.avisos.slice(0, 5).map(item => `<p>- ${esc(item)}</p>`).join("")}<p>- Planta gerada automaticamente para estudo/orcamento. Nao usar como projeto executivo.</p></div>
+              </aside>
+            </main>
+            <footer><div>${titleBlock}${revisao}</div><div class="stamp">E-CORP SERVICOS LTDA<br>Prancha: ENG-LAJ-001<br>Rev.: R00<br>Categoria: LAJES<br>BMU ${esc(r.metadados.versaoBMU)}</div></footer>
+          </section>
+          <script>setTimeout(() => window.print(), 600);<\/script>
+          </body></html>`;
+        const win = window.open("", "_blank");
+        if (!win) {
+          alert("Permita pop-ups para abrir a prancha de laje.");
+          return;
+        }
+        win.document.open();
+        win.document.write(html);
+        win.document.close();
+      }
+
       function getCronogramaPdfOptions() {
         const checked = id => Boolean(byId(id)?.checked);
         return {
@@ -2387,8 +2756,10 @@
         if (!byId("engenhariaObraSelect").value && db.obras[0]) byId("engenhariaObraSelect").value = db.obras[0].id;
         const controle = getControle(byId("engenhariaObraSelect").value);
         engenhariaResultadoAtual = controle.engenhariaCore || null;
+        engenhariaLajeResultadoAtual = controle.engenhariaLaje || null;
         renderEngineeringTechnicalReferences();
         renderEngenhariaResultado(engenhariaResultadoAtual);
+        renderEngenhariaLajeResultado(engenhariaLajeResultadoAtual);
       }
 
       function showView(view, options = {}) {
@@ -2951,12 +3322,17 @@
       byId("engenhariaObraSelect").addEventListener("change", () => {
         const controle = getControle(byId("engenhariaObraSelect").value);
         engenhariaResultadoAtual = controle.engenhariaCore || null;
+        engenhariaLajeResultadoAtual = controle.engenhariaLaje || null;
         renderEngenhariaResultado(engenhariaResultadoAtual);
+        renderEngenhariaLajeResultado(engenhariaLajeResultadoAtual);
       });
       byId("engenhariaCarregarObra").addEventListener("click", () => {
         loadEngenhariaFromObra();
+        loadLajeFromObra();
         engenhariaResultadoAtual = null;
+        engenhariaLajeResultadoAtual = null;
         renderEngenhariaResultado(null);
+        renderEngenhariaLajeResultado(null);
       });
       byId("engenhariaForm").addEventListener("input", () => {
         engenhariaResultadoAtual = null;
@@ -2992,6 +3368,43 @@
       });
       byId("engenhariaExportarLocacao").addEventListener("click", () => {
         exportEngenhariaPranchaLocacao();
+      });
+      byId("lajeCarregarObra").addEventListener("click", () => {
+        loadLajeFromObra();
+        engenhariaLajeResultadoAtual = null;
+        renderEngenhariaLajeResultado(null);
+      });
+      byId("engenhariaLajeForm").addEventListener("input", () => {
+        engenhariaLajeResultadoAtual = null;
+      });
+      byId("engenhariaLajeForm").addEventListener("change", () => {
+        engenhariaLajeResultadoAtual = null;
+      });
+      byId("engenhariaLajeForm").addEventListener("submit", e => {
+        e.preventDefault();
+        engenhariaLajeResultadoAtual = calcularEngenhariaLaje();
+        renderEngenhariaLajeResultado(engenhariaLajeResultadoAtual);
+      });
+      byId("lajeSalvarResultado").addEventListener("click", () => {
+        engenhariaLajeResultadoAtual = calcularEngenhariaLaje();
+        const obraId = byId("engenhariaObraSelect").value;
+        if (!obraId) {
+          alert("Cadastre ou selecione uma obra antes de salvar a laje.");
+          return;
+        }
+        const controle = getControle(obraId);
+        controle.engenhariaLaje = { ...engenhariaLajeResultadoAtual, obraId };
+        controle.atualizadoEm = new Date().toLocaleString("pt-BR");
+        save();
+        alert("Resultado de laje salvo na obra.");
+        renderAll();
+        showView("engenharia");
+      });
+      byId("lajeExportarPdf").addEventListener("click", () => {
+        exportEngenhariaLajePdf();
+      });
+      byId("lajeExportarPrancha").addEventListener("click", () => {
+        exportEngenhariaLajePrancha();
       });
       byId("controleAlocados").addEventListener("change", e => {
         if (!e.target.matches("[data-alocado]")) return;

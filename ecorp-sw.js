@@ -1,4 +1,4 @@
-const CACHE_NAME = "ecorp-offline-v2";
+const CACHE_NAME = "ecorp-offline-v3";
 const APP_SHELL = [
   "/",
   "/integracao-preview.html",
