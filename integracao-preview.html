@@ -2393,11 +2393,11 @@
 
       function showView(view, options = {}) {
         const adminSubViews = ["operacao", "controleObra", "engenharia", "orcamentos"];
-        const restrictedViews = ["operacao", "controleObra", "engenharia", "orcamentos", "materiais"];
+        const restrictedViews = ["operacao", "controleObra", "engenharia", "orcamentos"];
         if (tutorialState.active && !options.keepTutorial) closeTutorial();
         if (restrictedViews.includes(view) && !canAccessRestrictedView(view)) {
           alert("Acesso nao liberado para este usuario. Entre com um funcionario autorizado ou com o ADM.");
-          return showView(adminAutenticado ? "admin" : "ponto", { force: true });
+          return showView("admin", { force: true });
         }
 
         const targetButton = document.querySelector(`[data-view="${view}"]`);
